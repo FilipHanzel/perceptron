@@ -1,31 +1,55 @@
 import random
-from typing import List, Tuple
+from math import exp
+from typing import List, Tuple, Callable
 
 from tqdm import tqdm
 
-from data import load_sonar_data
+from data import load_sonar_data, load_mpg_data
+
+
+class Activation:
+    @staticmethod
+    def heavyside(x):
+        return 1 if x >= 0 else 0
+
+    @staticmethod
+    def linear(x):
+        return x
+
+    @staticmethod
+    def relu(x):
+        return max(0, x)
+
+    @staticmethod
+    def leaky_relu(x):
+        return 0.3 * x if x < 0 else x
+
+    @staticmethod
+    def sigmoid(x):
+        return 1.0 / (1.0 + exp(-x))
 
 
 class Perceptron:
     __slots__ = ["weights", "bias", "activation"]
 
-    def __init__(self, inputs: int):
+    def __init__(self, inputs: int, activation: Callable[[float], float]):
         self.weights = [random.uniform(0, 1) for _ in range(inputs)]
         self.bias = 0
+        self.activation = activation
 
     def predict(self, input_features: List[float]) -> float:
         state = 0
         for (w, s) in zip(self.weights, input_features):
             state += w * s
         state += self.bias
-        return 1 if state >= 0 else 0
+        return self.activation(state)
 
     def update(
         self, train_vector: List[float], learning_rate: float
     ) -> Tuple[float, float]:
-        *features, label = train_vector
+        *features, target = train_vector
         prediction = self.predict(features)
-        error = label - prediction
+        error = target - prediction
 
         self.bias += learning_rate * error
         for idx, feature in enumerate(features):
@@ -35,6 +59,7 @@ class Perceptron:
 
 
 def main():
+    print("[ Classification problem ]")
     labels_mapping, dataset = load_sonar_data()
 
     print("Label mapping:")
@@ -50,7 +75,7 @@ def main():
     sample = random.choice(dataset)
     *features, label = sample
 
-    perceptron = Perceptron(len(features))
+    perceptron = Perceptron(len(features), Activation.heavyside)
 
     sse = 0.0
     correct = 0
@@ -89,6 +114,49 @@ def main():
             sse += square_error
         accuracy /= len(dataset)
         progress.set_postfix(sse=sse, acc=round(accuracy, 3))
+
+    print("[ Regression problem ]")
+    dataset = load_mpg_data()
+
+    random.seed(0)
+
+    sample = random.choice(dataset)
+    *features, label = sample
+
+    perceptron = Perceptron(len(features), Activation.relu)
+
+    print('Pre training predictions:')
+    for *features, target in dataset[:3]:
+        print(target, "\t", perceptron.predict(features))
+
+    sse = 0.0
+    for *features, target in dataset:
+        prediction = perceptron.predict(features)
+        sse += (prediction - target) ** 2
+    print(f"Pre training SSE: {sse:6.3f}")
+
+    epochs = 1000
+    learning_rate = 0.001
+
+    progress = tqdm(
+        range(epochs),
+        unit="epochs",
+        ncols=100,
+        bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
+    )
+
+    for epoch in progress:
+        sse = 0.0
+        for vector in dataset:
+            target, *features = vector
+            prediction, square_error = perceptron.update(vector, learning_rate)
+            sse += square_error
+        progress.set_postfix(sse=sse)
+
+
+    print('Predictions after training:')
+    for *features, target in dataset[:3]:
+        print(target, "\t", perceptron.predict(features))
 
 
 if __name__ == "__main__":
