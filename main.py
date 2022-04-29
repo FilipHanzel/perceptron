@@ -11,7 +11,6 @@ class Perceptron:
 
     def __init__(self, inputs: int):
         self.weights = [random.uniform(0, 1) for _ in range(inputs)]
-        self.weights = [0 for _ in range(inputs)]
         self.bias = 0
 
     def predict(self, input_features: List[float]) -> float:
