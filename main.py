@@ -46,9 +46,8 @@ def sonar():
     for epoch in progress:
         sse = 0.0
         accuracy = 0
-        for vector in dataset:
-            *features, label = vector
-            prediction, square_error = perceptron.update(vector, learning_rate)
+        for *features, label in dataset:
+            prediction, square_error = perceptron.update(features, label, learning_rate)
             prediction = 1 if prediction >= 0.5 else 0
             if prediction == label:
                 accuracy += 1
@@ -99,9 +98,8 @@ def mpg():
 
     for epoch in progress:
         sse = 0.0
-        for vector in dataset:
-            target, *features = vector
-            prediction, square_error = perceptron.update(vector, learning_rate)
+        for *features, target in dataset:
+            prediction, square_error = perceptron.update(features, target, learning_rate)
             sse += square_error
         progress.set_postfix(sse=sse)
 

@@ -1,6 +1,6 @@
 import random
 from math import exp
-from typing import List, Tuple, Callable
+from typing import List, Tuple
 
 
 class Activation:
@@ -60,22 +60,21 @@ class Perceptron:
 
         self.activation = getattr(Activation, activation)
 
-    def predict(self, input_features: List[float]) -> float:
+    def predict(self, inputs: List[float]) -> float:
         state = 0
-        for (w, s) in zip(self.weights, input_features):
+        for (w, s) in zip(self.weights, inputs):
             state += w * s
         state += self.bias
         return self.activation(state)
 
     def update(
-        self, train_vector: List[float], learning_rate: float
+        self, inputs: List[float], target: float, learning_rate: float
     ) -> Tuple[float, float]:
-        *features, target = train_vector
-        prediction = self.predict(features)
+        prediction = self.predict(inputs)
         error = target - prediction
 
         self.bias += learning_rate * error
-        for idx, feature in enumerate(features):
+        for idx, feature in enumerate(inputs):
             self.weights[idx] = self.weights[idx] + learning_rate * error * feature
 
         return (prediction, error**2)
@@ -116,7 +115,7 @@ class MultilayerPerceptron:
             for (input_size, layer_size) in zip(input_sizes, layer_sizes)
         ]
 
-    def predict(self, inputs: List[float]):
+    def predict(self, inputs: List[float]) -> List[float]:
         state = inputs
         for layer in self.layers:
             state = [
@@ -127,7 +126,9 @@ class MultilayerPerceptron:
             ]
         return state
 
-    def update(self, inputs: List[float], targets: List[float], learning_rate: float):
+    def update(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> Tuple[List[float], float]:
         # Forward pass
         for layer in self.layers:
             state = []
@@ -141,12 +142,18 @@ class MultilayerPerceptron:
 
                 state.append(neuron.output)
             inputs = state
+        output = state
 
         # Error backpropagation
         *hidden_layers, output_layer = self.layers
 
+        sse = 0.0
+
         for neuron, target in zip(output_layer, targets):
-            neuron.error = (target - neuron.output) * self.derivative(neuron.output)
+            error = target - neuron.output
+            neuron.error = error * self.derivative(neuron.output)
+
+            sse += error**2
 
         for index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(self.layers[index]):
@@ -163,3 +170,5 @@ class MultilayerPerceptron:
             for neuron in layer:
                 for weight_index, inp in enumerate(neuron.inputs):
                     neuron.weights[weight_index] += learning_rate * neuron.error * inp
+
+        return (output, sse)
