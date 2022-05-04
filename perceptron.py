@@ -121,6 +121,7 @@ class MultilayerPerceptron:
             state = [
                 self.activation(
                     sum([weight * inp for weight, inp in zip(neuron.weights, state)])
+                    + neuron.bias
                 )
                 for neuron in layer
             ]
@@ -135,7 +136,7 @@ class MultilayerPerceptron:
             for neuron in layer:
                 neuron.inputs = inputs
 
-                neuron.output = 0.0
+                neuron.output = neuron.bias
                 for w, i in zip(neuron.weights, neuron.inputs):
                     neuron.output += w * i
                 neuron.output = self.activation(neuron.output)
@@ -170,5 +171,6 @@ class MultilayerPerceptron:
             for neuron in layer:
                 for weight_index, inp in enumerate(neuron.inputs):
                     neuron.weights[weight_index] += learning_rate * neuron.error * inp
+                neuron.bias += learning_rate * neuron.error
 
         return (output, sse)
