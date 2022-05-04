@@ -109,7 +109,9 @@ class MultilayerPerceptron:
 
         self.layers = [
             [
-                self.Neuron(weights=[0.0 for _ in range(input_size)], bias=0.0)
+                self.Neuron(
+                    weights=[random.uniform(0, 1) for _ in range(input_size)], bias=0.0
+                )
                 for _ in range(layer_size)
             ]
             for (input_size, layer_size) in zip(input_sizes, layer_sizes)
