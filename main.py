@@ -4,7 +4,6 @@ from tqdm import tqdm
 
 from data import load_sonar_data, load_mpg_data
 from perceptron import Perceptron
-from perceptron import Activation
 
 
 def sonar():
@@ -20,7 +19,7 @@ def sonar():
 
     random.seed(0)
 
-    perceptron = Perceptron(len(dataset[0]), Activation.heavyside)
+    perceptron = Perceptron(len(dataset[0]), 'heavyside')
 
     sse = 0.0
     correct = 0
@@ -76,7 +75,7 @@ def mpg():
 
     random.seed(0)
 
-    perceptron = Perceptron(len(dataset[0]), Activation.relu)
+    perceptron = Perceptron(len(dataset[0]), 'relu')
 
     print("Pre training predictions:")
     for *features, target in dataset[:3]:

@@ -46,10 +46,19 @@ class Derivative:
 class Perceptron:
     __slots__ = ["weights", "bias", "activation"]
 
-    def __init__(self, inputs: int, activation: Callable[[float], float]):
+    def __init__(self, inputs: int, activation: str):
+        assert activation in (
+            "heavyside",
+            "linear",
+            "relu",
+            "leaky_relu",
+            "sigmoid",
+        ), "Invalid activation"
+
         self.weights = [random.uniform(0, 1) for _ in range(inputs)]
         self.bias = 0
-        self.activation = activation
+
+        self.activation = getattr(Activation, activation)
 
     def predict(self, input_features: List[float]) -> float:
         state = 0
@@ -86,15 +95,16 @@ class MultilayerPerceptron:
             self.output: float = None
             self.error: float = None
 
-    def __init__(
-        self,
-        inputs: int,
-        layer_sizes: List[int],
-        activation: Callable[[float], float],
-        derivative: Callable[[float], float],
-    ):
-        self.activation = activation
-        self.derivative = derivative
+    def __init__(self, inputs: int, layer_sizes: List[int], activation: str):
+        assert activation in (
+            "linear",
+            "relu",
+            "leaky_relu",
+            "sigmoid",
+        ), "Invalid activation"
+
+        self.activation = getattr(Activation, activation)
+        self.derivative = getattr(Derivative, activation)
 
         input_sizes = [inputs, *layer_sizes]
 
