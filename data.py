@@ -13,7 +13,7 @@ def load_mpg_data():
         ]
 
     dataset = drop_columns(dataset, [-1])
-    dataet = swap_target_placement(dataset, 0)
+    dataset = swap_target_placement(dataset, 0)
 
     return normalize(dataset)
 
