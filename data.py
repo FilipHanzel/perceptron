@@ -60,26 +60,25 @@ def swap_target_placement(dataset: List[List[Any]], label_index: int):
 
 
 def normalize(dataset: List[List[float]]) -> List[List[float]]:
-    feature_count = len(dataset[0]) - 1
+    row_length = len(dataset[0])
 
-    total_min = [None] * feature_count
-    total_max = [None] * feature_count
-    for *features, _ in dataset:
-        for idx, feature in enumerate(features):
-            if total_min[idx] is None or total_min[idx] > feature:
-                total_min[idx] = feature
-            if total_max[idx] is None or total_max[idx] < feature:
-                total_max[idx] = feature
+    total_min = [None] * row_length
+    total_max = [None] * row_length
+    for record in dataset:
+        for idx, column in enumerate(record):
+            if total_min[idx] is None or total_min[idx] > column:
+                total_min[idx] = column
+            if total_max[idx] is None or total_max[idx] < column:
+                total_max[idx] = column
 
-    normalized_dataset = []
-    for *features, label in dataset:
-        normalized_dataset.append(
-            [
-                (feature - min_) / (max_ - min_)
-                for feature, min_, max_ in zip(features, total_min, total_max)
-            ]
-            + [label]
-        )
+    normalized_dataset = [
+        [
+            (column - min_) / (max_ - min_)
+            for column, min_, max_ in zip(record, total_min, total_max)
+        ]
+        for record in dataset
+    ]
+
     return normalized_dataset
 
 
