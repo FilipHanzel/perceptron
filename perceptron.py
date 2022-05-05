@@ -2,6 +2,8 @@ import random
 from math import exp
 from typing import List, Tuple
 
+from tqdm import tqdm
+
 
 class Activation:
     @staticmethod
@@ -77,6 +79,30 @@ class Perceptron:
 
         return prediction
 
+    def train(
+        self,
+        list_of_inputs: List[List[float]],
+        list_of_targets: List[float],
+        epochs: int,
+        learning_rate: float,
+    ) -> None:
+
+        progress = tqdm(
+            range(epochs),
+            unit="epochs",
+            ncols=100,
+            bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
+        )
+
+        for epoch in progress:
+            sse = 0.0
+
+            for inputs, target in zip(list_of_inputs, list_of_targets):
+                prediction = self.update(inputs, target, learning_rate)
+
+                sse += (prediction - target) ** 2
+            progress.set_postfix(sse=round(sse, 3))
+
 
 class MultilayerPerceptron:
     __slots__ = ["activation", "derivative", "layers"]
@@ -91,6 +117,12 @@ class MultilayerPerceptron:
             self.inputs: List[float] = None
             self.output: float = None
             self.error: float = None
+
+        def __str__(self):
+            return f"Neuron <weights: {self.weights}, bias: {self.bias}>"
+
+        def __repr__(self):
+            return self.__str__()
 
     def __init__(self, inputs: int, layer_sizes: List[int], activation: str):
         assert activation in (
@@ -171,4 +203,26 @@ class MultilayerPerceptron:
 
         return output
 
-        return (output, sse)
+    def train(
+        self,
+        list_of_inputs: List[List[float]],
+        list_of_targets: List[List[float]],
+        epochs: int,
+        learning_rate: float,
+    ) -> None:
+
+        progress = tqdm(
+            range(epochs),
+            unit="epochs",
+            ncols=100,
+            bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
+        )
+
+        for epoch in progress:
+            sse = 0.0
+
+            for inputs, target in zip(list_of_inputs, list_of_targets):
+                prediction = self.update(inputs, target, learning_rate)
+
+                sse += sum([(p - t) ** 2 for p, t in zip(prediction, target)])
+            progress.set_postfix(sse=round(sse, 3))
