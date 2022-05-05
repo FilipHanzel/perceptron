@@ -67,17 +67,15 @@ class Perceptron:
         state += self.bias
         return self.activation(state)
 
-    def update(
-        self, inputs: List[float], target: float, learning_rate: float
-    ) -> Tuple[float, float]:
+    def update(self, inputs: List[float], target: float, learning_rate: float) -> float:
         prediction = self.predict(inputs)
-        error = target - prediction
 
+        error = target - prediction
         self.bias += learning_rate * error
         for idx, feature in enumerate(inputs):
             self.weights[idx] = self.weights[idx] + learning_rate * error * feature
 
-        return (prediction, error**2)
+        return prediction
 
 
 class MultilayerPerceptron:
@@ -150,13 +148,8 @@ class MultilayerPerceptron:
         # Error backpropagation
         *hidden_layers, output_layer = self.layers
 
-        sse = 0.0
-
         for neuron, target in zip(output_layer, targets):
-            error = target - neuron.output
-            neuron.error = error * self.derivative(neuron.output)
-
-            sse += error**2
+            neuron.error = target - neuron.output
 
         for index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(self.layers[index]):
@@ -166,13 +159,16 @@ class MultilayerPerceptron:
                     neuron.error += (
                         front_neuron.weights[neuron_index] * front_neuron.error
                     )
-                neuron.error *= self.derivative(neuron.output)
+                neuron.error
 
         # Weight update
         for layer in self.layers:
             for neuron in layer:
+                update = self.derivative(neuron.output) * learning_rate * neuron.error
                 for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.weights[weight_index] += learning_rate * neuron.error * inp
-                neuron.bias += learning_rate * neuron.error
+                    neuron.weights[weight_index] += update * inp
+                neuron.bias += update
+
+        return output
 
         return (output, sse)
