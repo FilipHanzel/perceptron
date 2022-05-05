@@ -36,25 +36,13 @@ def sonar():
     epochs = 2500
     learning_rate = 0.0001
 
-    progress = tqdm(
-        range(epochs),
-        unit="epochs",
-        ncols=100,
-        bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
-    )
+    list_of_inputs = []
+    list_of_targets = []
+    for *inputs, target in dataset:
+        list_of_inputs.append(inputs)
+        list_of_targets.append(target)
 
-    for epoch in progress:
-        sse = 0.0
-        accuracy = 0
-        for vector in dataset:
-            *features, label = vector
-            prediction, square_error = perceptron.update(vector, learning_rate)
-            prediction = 1 if prediction >= 0.5 else 0
-            if prediction == label:
-                accuracy += 1
-            sse += square_error
-        accuracy /= len(dataset)
-        progress.set_postfix(sse=sse, acc=round(accuracy, 3))
+    perceptron.train(list_of_inputs, list_of_targets, epochs, learning_rate)
 
     sse = 0.0
     correct = 0
@@ -87,23 +75,16 @@ def mpg():
         sse += (prediction - target) ** 2
     print(f"Pre training SSE: {sse:6.3f}")
 
-    epochs = 2500
-    learning_rate = 0.0001
+    epochs = 500
+    learning_rate = 0.001
 
-    progress = tqdm(
-        range(epochs),
-        unit="epochs",
-        ncols=100,
-        bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
-    )
+    list_of_inputs = []
+    list_of_targets = []
+    for *inputs, target in dataset:
+        list_of_inputs.append(inputs)
+        list_of_targets.append(target)
 
-    for epoch in progress:
-        sse = 0.0
-        for vector in dataset:
-            target, *features = vector
-            prediction, square_error = perceptron.update(vector, learning_rate)
-            sse += square_error
-        progress.set_postfix(sse=sse)
+    perceptron.train(list_of_inputs, list_of_targets, epochs, learning_rate)
 
     print("Predictions after training:")
     for *features, target in dataset[:3]:
