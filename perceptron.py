@@ -181,7 +181,7 @@ class MultilayerPerceptron:
         *hidden_layers, output_layer = self.layers
 
         for neuron, target in zip(output_layer, targets):
-            neuron.error = target - neuron.output
+            neuron.error = (target - neuron.output) * self.derivative(neuron.output)
 
         for index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(self.layers[index]):
@@ -191,15 +191,14 @@ class MultilayerPerceptron:
                     neuron.error += (
                         front_neuron.weights[neuron_index] * front_neuron.error
                     )
-                neuron.error
+                neuron.error *= self.derivative(neuron.output)
 
         # Weight update
         for layer in self.layers:
             for neuron in layer:
-                update = self.derivative(neuron.output) * learning_rate * neuron.error
                 for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.weights[weight_index] += update * inp
-                neuron.bias += update
+                    neuron.weights[weight_index] += learning_rate * neuron.error * inp
+                neuron.bias += learning_rate * neuron.error
 
         return output
 
