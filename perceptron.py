@@ -1,6 +1,6 @@
 import random
 from math import exp
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from tqdm import tqdm
 
@@ -45,6 +45,10 @@ class Derivative:
         return 1.0
 
 
+def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> float:
+    return base_rate * (1.0 - (current_epoch / total_epochs))
+
+
 class Perceptron:
     __slots__ = ["weights", "bias", "activation"]
 
@@ -84,8 +88,13 @@ class Perceptron:
         list_of_inputs: List[List[float]],
         list_of_targets: List[float],
         epochs: int,
-        learning_rate: float,
+        base_learning_rate: float,
+        learning_rate_decay: Union[str, None] = "linear",
     ) -> None:
+        assert learning_rate_decay in [
+            None,
+            "linear",
+        ], "Unsupported learning rate decay"
 
         progress = tqdm(
             range(epochs),
@@ -94,8 +103,12 @@ class Perceptron:
             bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
         )
 
+        learning_rate = base_learning_rate
         for epoch in progress:
             sse = 0.0
+
+            if learning_rate_decay == "linear":
+                learning_rate = linear_decay(base_learning_rate, epoch, epochs)
 
             for inputs, target in zip(list_of_inputs, list_of_targets):
                 prediction = self.update(inputs, target, learning_rate)
@@ -181,7 +194,7 @@ class MultilayerPerceptron:
         *hidden_layers, output_layer = self.layers
 
         for neuron, target in zip(output_layer, targets):
-            neuron.error = target - neuron.output
+            neuron.error = (target - neuron.output) * self.derivative(neuron.output)
 
         for index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(self.layers[index]):
@@ -191,15 +204,14 @@ class MultilayerPerceptron:
                     neuron.error += (
                         front_neuron.weights[neuron_index] * front_neuron.error
                     )
-                neuron.error
+                neuron.error *= self.derivative(neuron.output)
 
         # Weight update
         for layer in self.layers:
             for neuron in layer:
-                update = self.derivative(neuron.output) * learning_rate * neuron.error
                 for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.weights[weight_index] += update * inp
-                neuron.bias += update
+                    neuron.weights[weight_index] += learning_rate * neuron.error * inp
+                neuron.bias += learning_rate * neuron.error
 
         return output
 
@@ -208,8 +220,13 @@ class MultilayerPerceptron:
         list_of_inputs: List[List[float]],
         list_of_targets: List[List[float]],
         epochs: int,
-        learning_rate: float,
+        base_learning_rate: float,
+        learning_rate_decay: Union[str, None] = "linear",
     ) -> None:
+        assert learning_rate_decay in [
+            None,
+            "linear",
+        ], "Unsupported learning rate decay"
 
         progress = tqdm(
             range(epochs),
@@ -218,8 +235,12 @@ class MultilayerPerceptron:
             bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
         )
 
+        learning_rate = base_learning_rate
         for epoch in progress:
             sse = 0.0
+
+            if learning_rate_decay == "linear":
+                learning_rate = linear_decay(base_learning_rate, epoch, epochs)
 
             for inputs, target in zip(list_of_inputs, list_of_targets):
                 prediction = self.update(inputs, target, learning_rate)
