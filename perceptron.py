@@ -45,6 +45,20 @@ class Derivative:
         return 1.0
 
 
+class WeightInit:
+    @staticmethod
+    def uniform(inputs: int) -> None:
+        return [random.uniform(0, 1) for _ in range(inputs)]
+
+    @staticmethod
+    def gauss(inputs: int) -> None:
+        return [random.gauss(0, 1) for _ in range(inputs)]
+
+    @staticmethod
+    def zeros(inputs: int) -> None:
+        return [0.0] * inputs
+
+
 def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> float:
     return base_rate * (1.0 - (current_epoch / total_epochs))
 
@@ -52,7 +66,7 @@ def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> flo
 class Perceptron:
     __slots__ = ["weights", "bias", "activation"]
 
-    def __init__(self, inputs: int, activation: str):
+    def __init__(self, inputs: int, activation: str, init_method: str = "uniform"):
         assert activation in (
             "heavyside",
             "linear",
@@ -61,14 +75,20 @@ class Perceptron:
             "sigmoid",
         ), "Invalid activation"
 
-        self.weights = [random.uniform(0, 1) for _ in range(inputs)]
+        assert init_method in (
+            "uniform",
+            "gauss",
+            "zeros",
+        ), "Invalid weight initialization method"
+
+        self.weights = getattr(WeightInit, init_method)(inputs)
         self.bias = 0
 
         self.activation = getattr(Activation, activation)
 
     def predict(self, inputs: List[float]) -> float:
         state = 0
-        for (w, s) in zip(self.weights, inputs):
+        for w, s in zip(self.weights, inputs):
             state += w * s
         state += self.bias
         return self.activation(state)
@@ -137,7 +157,13 @@ class MultilayerPerceptron:
         def __repr__(self):
             return self.__str__()
 
-    def __init__(self, inputs: int, layer_sizes: List[int], activation: str):
+    def __init__(
+        self,
+        inputs: int,
+        layer_sizes: List[int],
+        activation: str,
+        init_method: str = "gauss",
+    ):
         assert activation in (
             "linear",
             "relu",
@@ -145,16 +171,21 @@ class MultilayerPerceptron:
             "sigmoid",
         ), "Invalid activation"
 
+        assert init_method in (
+            "uniform",
+            "gauss",
+            "zeros",
+        ), "Invalid weight initialization method"
+
         self.activation = getattr(Activation, activation)
         self.derivative = getattr(Derivative, activation)
 
         input_sizes = [inputs, *layer_sizes]
 
+        init_method = getattr(WeightInit, init_method)
         self.layers = [
             [
-                self.Neuron(
-                    weights=[random.uniform(0, 1) for _ in range(input_size)], bias=0.0
-                )
+                self.Neuron(weights=init_method(input_size), bias=0.0)
                 for _ in range(layer_size)
             ]
             for (input_size, layer_size) in zip(input_sizes, layer_sizes)
