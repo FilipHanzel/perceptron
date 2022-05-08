@@ -88,7 +88,7 @@ class Perceptron:
 
     def predict(self, inputs: List[float]) -> float:
         state = 0
-        for (w, s) in zip(self.weights, inputs):
+        for w, s in zip(self.weights, inputs):
             state += w * s
         state += self.bias
         return self.activation(state)
