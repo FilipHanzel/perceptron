@@ -58,6 +58,16 @@ class WeightInit:
     def zeros(inputs: int) -> List[float]:
         return [0.0] * inputs
 
+    @staticmethod
+    def he(inputs: int) -> List[float]:
+        scale = (2 / inputs) ** 0.5
+        return [random.gauss(0, 1) * scale for _ in range(inputs)]
+
+    @staticmethod
+    def xavier(inputs: int) -> List[float]:
+        scale = (1 / inputs) ** 0.5
+        return [random.gauss(0, 1) * scale for _ in range(inputs)]
+
 
 def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> float:
     return base_rate * (1.0 - (current_epoch / total_epochs))
@@ -79,6 +89,8 @@ class Perceptron:
             "uniform",
             "gauss",
             "zeros",
+            "he",
+            "xavier",
         ), "Invalid weight initialization method"
 
         self.weights = getattr(WeightInit, init_method)(inputs)
@@ -175,6 +187,8 @@ class MultilayerPerceptron:
             "uniform",
             "gauss",
             "zeros",
+            "he",
+            "xavier",
         ), "Invalid weight initialization method"
 
         self.activation = getattr(Activation, activation)
