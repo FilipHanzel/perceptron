@@ -1,5 +1,6 @@
 import os
 import csv
+import random
 from typing import List, Dict, Union, Any
 
 
@@ -14,6 +15,7 @@ def load_mpg_data():
 
     dataset = drop_columns(dataset, [-1])
     dataset = swap_target_placement(dataset, 0)
+    random.shuffle(dataset)
 
     return normalize(dataset)
 
@@ -26,6 +28,7 @@ def load_sonar_data():
         ]
 
     mapping, encoded = encode_labels(dataset)
+    random.shuffle(encoded)
 
     return mapping, encoded
 
