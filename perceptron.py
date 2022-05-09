@@ -48,7 +48,7 @@ class Derivative:
 class WeightInit:
     @staticmethod
     def uniform(inputs: int) -> List[float]:
-        return [random.uniform(0, 1) for _ in range(inputs)]
+        return [random.uniform(-1, 1) for _ in range(inputs)]
 
     @staticmethod
     def gauss(inputs: int) -> List[float]:
