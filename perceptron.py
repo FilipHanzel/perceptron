@@ -73,6 +73,22 @@ def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> flo
     return base_rate * (1.0 - (current_epoch / total_epochs))
 
 
+class Metric:
+    @staticmethod
+    def acc(predictions: List, targets: List) -> float:
+        correct = 0
+        for prediction, target in zip(predictions, targets):
+            correct += prediction == target
+        return correct / len(predictions)
+
+    @staticmethod
+    def sse(predictions: List, targets: List) -> float:
+        sse = 0.0
+        for prediction, target in zip(predictions, targets):
+            sse += (prediction - target) ** 2
+        return sse
+
+
 class Perceptron:
     __slots__ = ["weights", "bias", "activation"]
 
@@ -122,11 +138,15 @@ class Perceptron:
         epochs: int,
         base_learning_rate: float,
         learning_rate_decay: Union[str, None] = "linear",
-    ) -> None:
+        metrics: List[str] = ["sse"],
+    ) -> List:
         assert learning_rate_decay in [
             None,
             "linear",
         ], "Unsupported learning rate decay"
+
+        for metric in metrics:
+            assert metric in ["sse", "acc"], "Unsupported metric"
 
         progress = tqdm(
             range(epochs),
@@ -137,7 +157,6 @@ class Perceptron:
 
         learning_rate = base_learning_rate
         for epoch in progress:
-            sse = 0.0
 
             if learning_rate_decay == "linear":
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
@@ -145,8 +164,12 @@ class Perceptron:
             for inputs, target in zip(list_of_inputs, list_of_targets):
                 prediction = self.update(inputs, target, learning_rate)
 
-                sse += (prediction - target) ** 2
-            progress.set_postfix(sse=round(sse, 3))
+            predictions = [self.predict(inputs) for inputs in list_of_inputs]
+            calculated_metrics = {
+                metric: getattr(Metric, metric)(predictions, list_of_targets)
+                for metric in metrics
+            }
+            progress.set_postfix(**calculated_metrics)
 
 
 class MultilayerPerceptron:
