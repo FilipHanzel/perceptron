@@ -363,3 +363,43 @@ class MultilayerPerceptron:
                     )
 
             progress.set_postfix(**calculated_metrics)
+
+
+def cross_validation(
+    inputs: List,
+    targets: List,
+    fold_count: int,
+    epoch: int,
+    base_learning_rate: float,
+    learning_rate_decay: str,
+    model_constructor: Union[Type[Perceptron], Type[MultilayerPerceptron]],
+    model_params: Dict,
+    metrics: List[str] = ["sse"],
+):
+    order = list(range(len(inputs)))
+    random.shuffle(order)
+
+    fold_size = ceil(len(inputs) / fold_count)
+    folds = [
+        order[index : index + fold_size] for index in range(0, len(inputs), fold_size)
+    ]
+
+    for test_fold in folds:
+        test_inputs = [inputs[idx] for idx in test_fold]
+        test_targets = [targets[idx] for idx in test_fold]
+
+        train_folds = [fold for fold in folds if fold is not test_fold]
+        train_inputs = [inputs[idx] for fold in train_folds for idx in fold]
+        train_targets = [targets[idx] for fold in train_folds for idx in fold]
+
+        model = model_constructor(**model_params)
+        model.train(
+            training_inputs=train_inputs,
+            training_targets=train_targets,
+            epochs=epoch,
+            base_learning_rate=base_learning_rate,
+            learning_rate_decay=learning_rate_decay,
+            metrics=metrics,
+            validation_inputs=test_inputs,
+            validation_targets=test_targets,
+        )
