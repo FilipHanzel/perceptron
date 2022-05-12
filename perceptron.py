@@ -77,15 +77,35 @@ class Metric:
     @staticmethod
     def acc(predictions: List, targets: List) -> float:
         correct = 0
-        for prediction, target in zip(predictions, targets):
-            correct += prediction == target
+
+        if isinstance(predictions[0], float) or isinstance(predictions[0], int):
+            for prediction, target in zip(predictions, targets):
+                correct += int(prediction) == target
+        else:
+            for prediction_list, target_list in zip(predictions, targets):
+                prediction = prediction_list.index(max(prediction_list))
+                target = target_list.index(max(target_list))
+
+                correct += prediction == target
+
         return correct / len(predictions)
 
     @staticmethod
     def sse(predictions: List, targets: List) -> float:
         sse = 0.0
-        for prediction, target in zip(predictions, targets):
-            sse += (prediction - target) ** 2
+
+        if isinstance(predictions[0], float) or isinstance(predictions[0], int):
+            for prediction, target in zip(predictions, targets):
+                sse += (prediction - target) ** 2
+        else:
+            for prediction_list, target_list in zip(predictions, targets):
+                sse += sum(
+                    [
+                        (prediction - target) ** 2
+                        for prediction, target in zip(prediction_list, target_list)
+                    ]
+                )
+
         return sse
 
 
