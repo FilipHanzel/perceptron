@@ -1,6 +1,6 @@
 import random
-from math import exp
-from typing import List, Tuple, Union
+from math import exp, ceil
+from typing import List, Tuple, Union, Type, Dict
 
 from tqdm import tqdm
 
@@ -73,6 +73,42 @@ def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> flo
     return base_rate * (1.0 - (current_epoch / total_epochs))
 
 
+class Metric:
+    @staticmethod
+    def acc(predictions: List, targets: List) -> float:
+        correct = 0
+
+        if isinstance(predictions[0], float) or isinstance(predictions[0], int):
+            for prediction, target in zip(predictions, targets):
+                correct += int(prediction) == target
+        else:
+            for prediction_list, target_list in zip(predictions, targets):
+                prediction = prediction_list.index(max(prediction_list))
+                target = target_list.index(max(target_list))
+
+                correct += prediction == target
+
+        return correct / len(predictions)
+
+    @staticmethod
+    def sse(predictions: List, targets: List) -> float:
+        sse = 0.0
+
+        if isinstance(predictions[0], float) or isinstance(predictions[0], int):
+            for prediction, target in zip(predictions, targets):
+                sse += (prediction - target) ** 2
+        else:
+            for prediction_list, target_list in zip(predictions, targets):
+                sse += sum(
+                    [
+                        (prediction - target) ** 2
+                        for prediction, target in zip(prediction_list, target_list)
+                    ]
+                )
+
+        return sse
+
+
 class Perceptron:
     __slots__ = ["weights", "bias", "activation"]
 
@@ -117,36 +153,53 @@ class Perceptron:
 
     def train(
         self,
-        list_of_inputs: List[List[float]],
-        list_of_targets: List[float],
+        training_inputs: List[List[float]],
+        training_targets: List[float],
         epochs: int,
         base_learning_rate: float,
         learning_rate_decay: Union[str, None] = "linear",
-    ) -> None:
+        metrics: List[str] = ["sse"],
+        validation_inputs: List[List[float]] = [],
+        validation_targets: List[float] = [],
+    ) -> List:
         assert learning_rate_decay in [
             None,
             "linear",
         ], "Unsupported learning rate decay"
 
+        for metric in metrics:
+            assert hasattr(Metric, metric), "Unsupported metric"
+
         progress = tqdm(
             range(epochs),
             unit="epochs",
-            ncols=100,
-            bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
+            bar_format="Training: {percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
         )
+
+        validate = len(validation_inputs) > 0
 
         learning_rate = base_learning_rate
         for epoch in progress:
-            sse = 0.0
 
             if learning_rate_decay == "linear":
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
 
-            for inputs, target in zip(list_of_inputs, list_of_targets):
+            for inputs, target in zip(training_inputs, training_targets):
                 prediction = self.update(inputs, target, learning_rate)
 
-                sse += (prediction - target) ** 2
-            progress.set_postfix(sse=round(sse, 3))
+            predictions = [self.predict(inputs) for inputs in training_inputs]
+            calculated_metrics = {
+                metric: getattr(Metric, metric)(predictions, training_targets)
+                for metric in metrics
+            }
+            if validate:
+                predictions = [self.predict(inputs) for inputs in validation_inputs]
+                for metric in metrics:
+                    calculated_metrics["val_" + metric] = getattr(Metric, metric)(
+                        predictions, validation_targets
+                    )
+
+            progress.set_postfix(**calculated_metrics)
 
 
 class MultilayerPerceptron:
@@ -262,33 +315,91 @@ class MultilayerPerceptron:
 
     def train(
         self,
-        list_of_inputs: List[List[float]],
-        list_of_targets: List[List[float]],
+        training_inputs: List[List[float]],
+        training_targets: List[List[float]],
         epochs: int,
         base_learning_rate: float,
         learning_rate_decay: Union[str, None] = "linear",
-    ) -> None:
+        metrics: List[str] = ["sse"],
+        validation_inputs: List[List[float]] = [],
+        validation_targets: List[List[float]] = [],
+    ) -> List:
         assert learning_rate_decay in [
             None,
             "linear",
         ], "Unsupported learning rate decay"
 
+        for metric in metrics:
+            assert hasattr(Metric, metric), "Unsupported metric"
+
         progress = tqdm(
             range(epochs),
             unit="epochs",
-            ncols=100,
-            bar_format="Training: {percentage:3.0f}% |{bar}| {n_fmt}/{total_fmt}{postfix}",
+            bar_format="Training: {percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
         )
+
+        validate = len(validation_inputs) > 0
 
         learning_rate = base_learning_rate
         for epoch in progress:
-            sse = 0.0
 
             if learning_rate_decay == "linear":
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
 
-            for inputs, target in zip(list_of_inputs, list_of_targets):
+            for inputs, target in zip(training_inputs, training_targets):
                 prediction = self.update(inputs, target, learning_rate)
 
-                sse += sum([(p - t) ** 2 for p, t in zip(prediction, target)])
-            progress.set_postfix(sse=round(sse, 3))
+            predictions = [self.predict(inputs) for inputs in training_inputs]
+            calculated_metrics = {
+                metric: getattr(Metric, metric)(predictions, training_targets)
+                for metric in metrics
+            }
+
+            if validate:
+                predictions = [self.predict(inputs) for inputs in validation_inputs]
+                for metric in metrics:
+                    calculated_metrics["val_" + metric] = getattr(Metric, metric)(
+                        predictions, validation_targets
+                    )
+
+            progress.set_postfix(**calculated_metrics)
+
+
+def cross_validation(
+    inputs: List,
+    targets: List,
+    fold_count: int,
+    epoch: int,
+    base_learning_rate: float,
+    learning_rate_decay: str,
+    model_constructor: Union[Type[Perceptron], Type[MultilayerPerceptron]],
+    model_params: Dict,
+    metrics: List[str] = ["sse"],
+):
+    order = list(range(len(inputs)))
+    random.shuffle(order)
+
+    fold_size = ceil(len(inputs) / fold_count)
+    folds = [
+        order[index : index + fold_size] for index in range(0, len(inputs), fold_size)
+    ]
+
+    for test_fold in folds:
+        test_inputs = [inputs[idx] for idx in test_fold]
+        test_targets = [targets[idx] for idx in test_fold]
+
+        train_folds = [fold for fold in folds if fold is not test_fold]
+        train_inputs = [inputs[idx] for fold in train_folds for idx in fold]
+        train_targets = [targets[idx] for fold in train_folds for idx in fold]
+
+        model = model_constructor(**model_params)
+        model.train(
+            training_inputs=train_inputs,
+            training_targets=train_targets,
+            epochs=epoch,
+            base_learning_rate=base_learning_rate,
+            learning_rate_decay=learning_rate_decay,
+            metrics=metrics,
+            validation_inputs=test_inputs,
+            validation_targets=test_targets,
+        )
