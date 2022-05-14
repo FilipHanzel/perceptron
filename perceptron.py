@@ -31,6 +31,10 @@ class Activation:
 
 class Derivative:
     @staticmethod
+    def linear(x):
+        return 1.0
+
+    @staticmethod
     def relu(x):
         return 0.0 if x < 0.0 else 1.0
 
@@ -41,10 +45,6 @@ class Derivative:
     @staticmethod
     def sigmoid(x):
         return x * (1.0 - x)
-
-    @staticmethod
-    def linear(x):
-        return 1.0
 
 
 class WeightInit:
