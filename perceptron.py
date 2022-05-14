@@ -4,6 +4,8 @@ from typing import List, Tuple, Union, Type, Dict
 
 from tqdm import tqdm
 
+import data_utils
+
 
 class Activation:
     @staticmethod
@@ -178,8 +180,15 @@ class Perceptron:
 
         validate = len(validation_inputs) > 0
 
+        training_inputs = training_inputs.copy()
+        training_targets = training_targets.copy()
+
         learning_rate = base_learning_rate
         for epoch in progress:
+
+            training_inputs, training_targets = data_utils.shuffle(
+                training_inputs, training_targets
+            )
 
             if learning_rate_decay == "linear":
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
@@ -340,8 +349,15 @@ class MultilayerPerceptron:
 
         validate = len(validation_inputs) > 0
 
+        training_inputs = training_inputs.copy()
+        training_targets = training_targets.copy()
+
         learning_rate = base_learning_rate
         for epoch in progress:
+
+            training_inputs, training_targets = data_utils.shuffle(
+                training_inputs, training_targets
+            )
 
             if learning_rate_decay == "linear":
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
