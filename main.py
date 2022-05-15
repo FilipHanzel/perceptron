@@ -1,106 +1,214 @@
+import os
+import csv
 import random
+from pprint import pprint
 
-from tqdm import tqdm
+from data_utils import transpose, normalize, to_categorical, to_binary
 
-from data import load_sonar_data, load_mpg_data
 from perceptron import Perceptron
 
 
-def sonar():
-    print("[ Classification ]")
-    labels_mapping, dataset = load_sonar_data()
+def load_xor(categorical: bool = False):
+    features = [
+        [0, 0],
+        [0, 1],
+        [1, 0],
+        [1, 1],
+    ]
 
-    print("Label mapping:")
-    for label in labels_mapping:
-        print(f"\t{label + ':':20} {labels_mapping[label]}")
-    assert (
-        len(labels_mapping) == 2
-    ), "Invalid dataset, only binary classification is supported"
-
-    random.seed(0)
-
-    perceptron = Perceptron(len(dataset[0]), "heavyside")
-
-    sse = 0.0
-    correct = 0
-    for *features, label in dataset:
-        prediction = perceptron.predict(features)
-        sse += (prediction - label) ** 2
-        prediction = 1 if prediction >= 0.5 else 0
-        if prediction == label:
-            correct += 1
-    accuracy = correct / len(dataset)
-    print(f"Pre training accuracy: {accuracy:6.2f}")
-    print(f"Pre training SSE: {sse:6.3f}")
-
-    epochs = 2500
-    learning_rate = 0.0001
-
-    list_of_inputs = []
-    list_of_targets = []
-    for *inputs, target in dataset:
-        list_of_inputs.append(inputs)
-        list_of_targets.append(target)
-
-    perceptron.train(list_of_inputs, list_of_targets, epochs, learning_rate)
-
-    sse = 0.0
-    correct = 0
-    for *features, label in dataset:
-        prediction = perceptron.predict(features)
-        sse += (prediction - label) ** 2
-        prediction = 1 if prediction >= 0.5 else 0
-        if prediction == label:
-            correct += 1
-    accuracy = correct / len(dataset)
-    print(f"After training accuracy: {accuracy:6.2f}")
-    print(f"After training SSE: {sse:6.3f}")
+    if categorical:
+        mapping, targets = to_categorical([0, 1, 1, 0])
+        return features, targets, mapping
+    else:
+        targets = [[0], [1], [1], [0]]
+        return features, targets
 
 
-def mpg():
-    print("[ Regression ]")
-    dataset = load_mpg_data()
+def load_sonar(categorical: bool = False):
+    with open(os.path.join("data", "sonar.csv"), "rt") as f:
+        data = [
+            [float(value) for value in features] + [target]
+            for *features, target in [line for line in csv.reader(f) if line]
+        ]
 
-    random.seed(0)
+    *features, targets = transpose(data)
+    features = transpose(features)
 
-    perceptron = Perceptron(len(dataset[0]), "relu")
+    if categorical:
+        mapping, targets = to_categorical(targets)
+    else:
+        mapping, targets = to_binary(targets)
 
-    print("Pre training predictions:")
-    for *features, target in dataset[:3]:
-        print(target, "\t", perceptron.predict(features))
-
-    sse = 0.0
-    for *features, target in dataset:
-        prediction = perceptron.predict(features)
-        sse += (prediction - target) ** 2
-    print(f"Pre training SSE: {sse:6.3f}")
-
-    epochs = 500
-    learning_rate = 0.001
-
-    list_of_inputs = []
-    list_of_targets = []
-    for *inputs, target in dataset:
-        list_of_inputs.append(inputs)
-        list_of_targets.append(target)
-
-    perceptron.train(list_of_inputs, list_of_targets, epochs, learning_rate)
-
-    print("Predictions after training:")
-    for *features, target in dataset[:3]:
-        print(target, "\t", perceptron.predict(features))
-
-    sse = 0.0
-    for *features, target in dataset:
-        prediction = perceptron.predict(features)
-        sse += (prediction - target) ** 2
-    print(f"After training SSE: {sse:6.3f}")
+    return features, targets, mapping
 
 
-def main():
-    sonar()
-    mpg()
+def load_mpg():
+    with open(os.path.join("data", "auto-mpg.csv"), "rt") as f:
+        data = [
+            [float(value) for value in features]
+            for *features, _ in [
+                line for line in csv.reader(f) if line and "?" not in line
+            ]
+        ]
+
+    data = normalize(data)
+
+    targets, *features = transpose(data)
+    targets = [[value] for value in targets]
+    features = transpose(features)
+
+    return features, targets
 
 
 if __name__ == "__main__":
-    main()
+    print("Running xor (classification)...")
+
+    print("Solving with single perceptron as binary classification...")
+    features, targets = load_xor()
+    inputs = 2
+    epochs = 5000
+    base_learning_rate = 0.2
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [1], "sigmoid", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["binary_accuracy", "sse"],
+    )
+
+    for feature, target in zip(features, targets):
+        print(f"{feature=}, {target=}, prediction={model.predict(feature)}")
+
+    print("Solving with single layer as categorical classification...")
+    features, targets, mapping = load_xor(categorical=True)
+    inputs = 2
+    epochs = 5000
+    base_learning_rate = 0.2
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [2], "sigmoid", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["categorical_accuracy", "binary_accuracy", "sse"],
+    )
+
+    for feature, target in zip(features, targets):
+        print(f"{feature=}, {target=}, prediction={model.predict(feature)}")
+
+    print("Solving with MLP...")
+    features, targets, mapping = load_xor(categorical=True)
+
+    inputs = 2
+    epochs = 5000
+    base_learning_rate = 0.2
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [2, 2], "leaky_relu", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["categorical_accuracy", "binary_accuracy", "sse"],
+    )
+
+    for feature, target in zip(features, targets):
+        print(f"{feature=}, {target=}, prediction={model.predict(feature)}")
+
+    print("Running sonar (classification)...")
+
+    print("Solving with single perceptron as binary classification...")
+    features, targets, mapping = load_sonar()
+    inputs = 60
+    epochs = 500
+    base_learning_rate = 0.2
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [1], "sigmoid", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["binary_accuracy", "sse"],
+    )
+
+    print("Solving with single layer as categorical classification...")
+    features, targets, mapping = load_sonar(categorical=True)
+    inputs = 60
+    epochs = 500
+    base_learning_rate = 0.2
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [2], "sigmoid", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["categorical_accuracy", "binary_accuracy", "sse"],
+    )
+
+    print("Solving with MLP...")
+    features, targets, mapping = load_sonar(categorical=True)
+    inputs = 60
+    epochs = 500
+    base_learning_rate = 0.2
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [2, 2], "leaky_relu", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["categorical_accuracy", "binary_accuracy", "sse"],
+    )
+
+    print("Running mpg (regression)...")
+
+    print("Solving with single perceptron...")
+    features, targets = load_mpg()
+    inputs = 7
+    epochs = 500
+    base_learning_rate = 0.01
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [1], "sigmoid", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["binary_accuracy", "sse"],
+    )
+
+    for feature, target in zip(features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
+
+    print("Solving with MLP...")
+    features, targets = load_mpg()
+    inputs = 7
+    epochs = 500
+    base_learning_rate = 0.1
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [10, 5, 1], "leaky_relu", init_method="he")
+    model.train(features, targets, epochs, base_learning_rate)
+
+    for feature, target in zip(features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")

@@ -4,6 +4,8 @@ from typing import List, Tuple, Union, Type, Dict
 
 from tqdm import tqdm
 
+import data_utils
+
 
 class Activation:
     @staticmethod
@@ -29,6 +31,10 @@ class Activation:
 
 class Derivative:
     @staticmethod
+    def linear(x):
+        return 1.0
+
+    @staticmethod
     def relu(x):
         return 0.0 if x < 0.0 else 1.0
 
@@ -39,10 +45,6 @@ class Derivative:
     @staticmethod
     def sigmoid(x):
         return x * (1.0 - x)
-
-    @staticmethod
-    def linear(x):
-        return 1.0
 
 
 class WeightInit:
@@ -75,134 +77,48 @@ def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> flo
 
 class Metric:
     @staticmethod
-    def acc(predictions: List, targets: List) -> float:
+    def binary_accuracy(predictions: List[List], targets: List[List]) -> float:
+        threshold = 0.5
+
+        correct = 0
+        total = 0
+
+        for predictions_row, target_row in zip(predictions, targets):
+            total += len(predictions_row)
+            for prediction, target in zip(predictions_row, target_row):
+                prediction = 1 if prediction > threshold else 0
+                correct += prediction == target
+
+        return correct / total
+
+    @staticmethod
+    def categorical_accuracy(predictions: List[List], targets: List[List]) -> float:
         correct = 0
 
-        if isinstance(predictions[0], float) or isinstance(predictions[0], int):
-            for prediction, target in zip(predictions, targets):
-                correct += int(prediction) == target
-        else:
-            for prediction_list, target_list in zip(predictions, targets):
-                prediction = prediction_list.index(max(prediction_list))
-                target = target_list.index(max(target_list))
+        for prediction_row, target_row in zip(predictions, targets):
+            prediction = prediction_row.index(max(prediction_row))
+            target = target_row.index(max(target_row))
 
-                correct += prediction == target
+            correct += prediction == target
 
         return correct / len(predictions)
 
     @staticmethod
-    def sse(predictions: List, targets: List) -> float:
+    def sse(predictions: List[List], targets: List[List]) -> float:
         sse = 0.0
 
-        if isinstance(predictions[0], float) or isinstance(predictions[0], int):
-            for prediction, target in zip(predictions, targets):
-                sse += (prediction - target) ** 2
-        else:
-            for prediction_list, target_list in zip(predictions, targets):
-                sse += sum(
-                    [
-                        (prediction - target) ** 2
-                        for prediction, target in zip(prediction_list, target_list)
-                    ]
-                )
+        for prediction_list, target_list in zip(predictions, targets):
+            sse += sum(
+                [
+                    (prediction - target) ** 2
+                    for prediction, target in zip(prediction_list, target_list)
+                ]
+            )
 
         return sse
 
 
 class Perceptron:
-    __slots__ = ["weights", "bias", "activation"]
-
-    def __init__(self, inputs: int, activation: str, init_method: str = "uniform"):
-        assert activation in (
-            "heavyside",
-            "linear",
-            "relu",
-            "leaky_relu",
-            "sigmoid",
-        ), "Invalid activation"
-
-        assert init_method in (
-            "uniform",
-            "gauss",
-            "zeros",
-            "he",
-            "xavier",
-        ), "Invalid weight initialization method"
-
-        self.weights = getattr(WeightInit, init_method)(inputs)
-        self.bias = 0
-
-        self.activation = getattr(Activation, activation)
-
-    def predict(self, inputs: List[float]) -> float:
-        state = 0
-        for w, s in zip(self.weights, inputs):
-            state += w * s
-        state += self.bias
-        return self.activation(state)
-
-    def update(self, inputs: List[float], target: float, learning_rate: float) -> float:
-        prediction = self.predict(inputs)
-
-        error = target - prediction
-        self.bias += learning_rate * error
-        for idx, feature in enumerate(inputs):
-            self.weights[idx] = self.weights[idx] + learning_rate * error * feature
-
-        return prediction
-
-    def train(
-        self,
-        training_inputs: List[List[float]],
-        training_targets: List[float],
-        epochs: int,
-        base_learning_rate: float,
-        learning_rate_decay: Union[str, None] = "linear",
-        metrics: List[str] = ["sse"],
-        validation_inputs: List[List[float]] = [],
-        validation_targets: List[float] = [],
-    ) -> List:
-        assert learning_rate_decay in [
-            None,
-            "linear",
-        ], "Unsupported learning rate decay"
-
-        for metric in metrics:
-            assert hasattr(Metric, metric), "Unsupported metric"
-
-        progress = tqdm(
-            range(epochs),
-            unit="epochs",
-            bar_format="Training: {percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
-        )
-
-        validate = len(validation_inputs) > 0
-
-        learning_rate = base_learning_rate
-        for epoch in progress:
-
-            if learning_rate_decay == "linear":
-                learning_rate = linear_decay(base_learning_rate, epoch, epochs)
-
-            for inputs, target in zip(training_inputs, training_targets):
-                prediction = self.update(inputs, target, learning_rate)
-
-            predictions = [self.predict(inputs) for inputs in training_inputs]
-            calculated_metrics = {
-                metric: getattr(Metric, metric)(predictions, training_targets)
-                for metric in metrics
-            }
-            if validate:
-                predictions = [self.predict(inputs) for inputs in validation_inputs]
-                for metric in metrics:
-                    calculated_metrics["val_" + metric] = getattr(Metric, metric)(
-                        predictions, validation_targets
-                    )
-
-            progress.set_postfix(**calculated_metrics)
-
-
-class MultilayerPerceptron:
     __slots__ = ["activation", "derivative", "layers"]
 
     class Neuron:
@@ -234,6 +150,7 @@ class MultilayerPerceptron:
             "relu",
             "leaky_relu",
             "sigmoid",
+            "heavyside",
         ), "Invalid activation"
 
         assert init_method in (
@@ -245,7 +162,11 @@ class MultilayerPerceptron:
         ), "Invalid weight initialization method"
 
         self.activation = getattr(Activation, activation)
-        self.derivative = getattr(Derivative, activation)
+        if activation == "heavyside":
+            assert len(layer_sizes) == 1, "Heavyside activation is invalid for MLP"
+            self.derivative = lambda _: 1
+        else:
+            self.derivative = getattr(Derivative, activation)
 
         input_sizes = [inputs, *layer_sizes]
 
@@ -340,8 +261,15 @@ class MultilayerPerceptron:
 
         validate = len(validation_inputs) > 0
 
+        training_inputs = training_inputs.copy()
+        training_targets = training_targets.copy()
+
         learning_rate = base_learning_rate
         for epoch in progress:
+
+            training_inputs, training_targets = data_utils.shuffle(
+                training_inputs, training_targets
+            )
 
             if learning_rate_decay == "linear":
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
@@ -372,7 +300,7 @@ def cross_validation(
     epoch: int,
     base_learning_rate: float,
     learning_rate_decay: str,
-    model_constructor: Union[Type[Perceptron], Type[MultilayerPerceptron]],
+    model_constructor: Type[Perceptron],
     model_params: Dict,
     metrics: List[str] = ["sse"],
 ):
