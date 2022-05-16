@@ -60,6 +60,20 @@ def load_mpg():
     return features, targets
 
 
+def load_iris():
+    with open(os.path.join("data", "iris.csv"), "rt") as f:
+        data = [
+            [float(value) for value in features] + [target]
+            for *features, target in [line for line in csv.reader(f) if line]
+        ]
+
+    *features, targets = transpose(data)
+    features = normalize(transpose(features))
+    mapping, targets = to_categorical(targets)
+
+    return features, targets, mapping
+
+
 if __name__ == "__main__":
     print("Running xor (classification)...")
 
@@ -209,6 +223,26 @@ if __name__ == "__main__":
 
     model = Perceptron(inputs, [10, 5, 1], "leaky_relu", init_method="he")
     model.train(features, targets, epochs, base_learning_rate)
+
+    for feature, target in zip(features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
+
+    print("Running iris (multiclass classification)...")
+    features, targets, mapping = load_iris()
+    inputs = 4
+    epochs = 500
+    base_learning_rate = 0.01
+
+    random.seed(0)
+
+    model = Perceptron(inputs, [4, 3, 3], "leaky_relu", init_method="he")
+    model.train(
+        features,
+        targets,
+        epochs,
+        base_learning_rate,
+        metrics=["categorical_accuracy", "sse"],
+    )
 
     for feature, target in zip(features[:5], targets[:5]):
         print(f"{target=}, prediction={model.predict(feature)}")
