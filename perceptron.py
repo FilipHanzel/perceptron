@@ -314,7 +314,6 @@ def cross_validation(
     epoch: int,
     base_learning_rate: float,
     learning_rate_decay: str,
-    model_constructor: Type[Perceptron],
     model_params: Dict,
     metrics: List[str] = ["sse"],
 ):
@@ -334,7 +333,7 @@ def cross_validation(
         train_inputs = [inputs[idx] for fold in train_folds for idx in fold]
         train_targets = [targets[idx] for fold in train_folds for idx in fold]
 
-        model = model_constructor(**model_params)
+        model = Perceptron(**model_params)
         model.train(
             training_inputs=train_inputs,
             training_targets=train_targets,
