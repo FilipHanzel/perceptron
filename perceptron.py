@@ -117,6 +117,20 @@ class Metric:
 
         return sse
 
+    @staticmethod
+    def mae(predictions: List[List], targets: List[List]) -> float:
+        mae = 0.0
+
+        for prediction_list, target_list in zip(predictions, targets):
+            mae += sum(
+                [
+                    abs(prediction - target)
+                    for prediction, target in zip(prediction_list, target_list)
+                ]
+            ) / len(prediction_list)
+
+        return mae
+
 
 class Perceptron:
     __slots__ = ["activation", "derivative", "layers"]
