@@ -61,29 +61,29 @@ def drop_columns(dataset, column_index: Union[int, List[int]]):
     return dataset
 
 
-def encode_as_int(column: List[str]) -> List[int]:
+def to_binary(column: List[str]) -> List[List[int]]:
     """Encode column values as 0 or 1."""
     values = set(column)
     assert len(values) == 2, "Too many values for binary encoding"
 
     mapping = {label: index for index, label in enumerate(values)}
-    encoded = [mapping[value] for value in column]
+    encoded = [[mapping[value]] for value in column]
 
     return mapping, encoded
 
 
-def encode(column: List[str]) -> List[List[int]]:
+def to_categorical(column: List[str]) -> List[List[int]]:
     """Encode column values as binary vectors."""
     values = set(column)
 
     index_mapping = {label: index for index, label in enumerate(values)}
 
-    encoded = [[0] * len(values) for _ in range(len(column))]
-    for vector, value in zip(encoded, column):
+    categorical = [[0] * len(values) for _ in range(len(column))]
+    for vector, value in zip(categorical, column):
         vector[index_mapping[value]] = 1
 
     mapping = {label: [0] * len(values) for label in index_mapping}
     for label, index in index_mapping.items():
         mapping[label][index] = 1
 
-    return mapping, encoded
+    return mapping, categorical
