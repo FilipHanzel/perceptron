@@ -24,11 +24,12 @@ if __name__ == "__main__":
     targets = [[value] for value in targets]
     features = transpose(features)
 
-    
     print("Solving with single perceptron...")
     random.seed(0)
 
-    model = Perceptron(inputs=7, layer_sizes=[1], activation="sigmoid", init_method="he")
+    model = Perceptron(
+        inputs=7, layer_sizes=[1], activation="sigmoid", init_method="he"
+    )
     model.train(
         training_inputs=features,
         training_targets=targets,
@@ -43,7 +44,9 @@ if __name__ == "__main__":
     print("Solving with MLP...")
     random.seed(0)
 
-    model = Perceptron(inputs=7, layer_sizes=[10, 5, 1], activation="sigmoid", init_method="he")
+    model = Perceptron(
+        inputs=7, layer_sizes=[10, 5, 1], activation="sigmoid", init_method="he"
+    )
     model.train(
         training_inputs=features,
         training_targets=targets,
