@@ -45,7 +45,7 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=7, layer_sizes=[10, 5, 1], activation="sigmoid", init_method="he"
+        inputs=7, layer_sizes=[10, 5, 1], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,

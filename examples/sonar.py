@@ -32,7 +32,7 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=60, layer_sizes=[1], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[1], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=60, layer_sizes=[2], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
@@ -58,7 +58,7 @@ if __name__ == "__main__":
 
     print("Solving with MLP as binary classification...")
     model = Perceptron(
-        inputs=60, layer_sizes=[2, 1], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2, 1], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     print("Solving with MLP as categorical classification...")
     model = Perceptron(
-        inputs=60, layer_sizes=[2, 2], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2, 2], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
@@ -84,7 +84,7 @@ if __name__ == "__main__":
     random.seed(0)
 
     model_params = dict(
-        inputs=60, layer_sizes=[2, 2], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2, 2], activations="sigmoid", init_method="he"
     )
     cross_validation(
         inputs=features,

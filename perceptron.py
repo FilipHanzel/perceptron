@@ -133,7 +133,7 @@ class Metric:
 
 
 class Perceptron:
-    __slots__ = ["activation", "derivative", "layers"]
+    __slots__ = ["activations", "derivatives", "layers"]
 
     class Neuron:
         __slots__ = ["weights", "bias", "inputs", "output", "error"]
@@ -150,16 +150,24 @@ class Perceptron:
         self,
         inputs: int,
         layer_sizes: List[int],
-        activation: str,
+        activations: Union[str, List[str]],
         init_method: str = "gauss",
     ):
-        assert activation in (
-            "linear",
-            "relu",
-            "leaky_relu",
-            "sigmoid",
-            "heavyside",
-        ), "Invalid activation"
+        if isinstance(activations, str):
+            activations = [activations] * len(layer_sizes)
+
+        for activation in activations:
+            assert activation in (
+                "linear",
+                "relu",
+                "leaky_relu",
+                "sigmoid",
+                "heavyside",
+            ), f"Invalid activation ({activation})"
+
+        assert len(activations) == len(
+            layer_sizes
+        ), "Amount of activations must match layers"
 
         assert init_method in (
             "uniform",
@@ -169,12 +177,16 @@ class Perceptron:
             "xavier",
         ), "Invalid weight initialization method"
 
-        self.activation = getattr(Activation, activation)
+        self.activations = [
+            getattr(Activation, activation) for activation in activations
+        ]
         if activation == "heavyside":
             assert len(layer_sizes) == 1, "Heavyside activation is invalid for MLP"
-            self.derivative = lambda _: 1
+            self.derivatives = [lambda _: 1]
         else:
-            self.derivative = getattr(Derivative, activation)
+            self.derivatives = [
+                getattr(Derivative, activation) for activation in activations
+            ]
 
         input_sizes = [inputs, *layer_sizes]
 
@@ -189,9 +201,9 @@ class Perceptron:
 
     def predict(self, inputs: List[float]) -> List[float]:
         state = inputs
-        for layer in self.layers:
+        for layer, activation in zip(self.layers, self.activations):
             state = [
-                self.activation(
+                activation(
                     sum([weight * inp for weight, inp in zip(neuron.weights, state)])
                     + neuron.bias
                 )
@@ -203,7 +215,7 @@ class Perceptron:
         self, inputs: List[float], targets: List[float], learning_rate: float
     ) -> Tuple[List[float], float]:
         # Forward pass
-        for layer in self.layers:
+        for layer, activation in zip(self.layers, self.activations):
             state = []
             for neuron in layer:
                 neuron.inputs = inputs
@@ -211,7 +223,7 @@ class Perceptron:
                 neuron.output = neuron.bias
                 for w, i in zip(neuron.weights, neuron.inputs):
                     neuron.output += w * i
-                neuron.output = self.activation(neuron.output)
+                neuron.output = activation(neuron.output)
 
                 state.append(neuron.output)
             inputs = state
@@ -220,8 +232,8 @@ class Perceptron:
         # Error backpropagation
         *hidden_layers, output_layer = self.layers
 
-        for neuron, target in zip(output_layer, targets):
-            neuron.error = (target - neuron.output) * self.derivative(neuron.output)
+        for neuron, target, derivative in zip(output_layer, targets, self.derivatives):
+            neuron.error = (target - neuron.output) * derivative(neuron.output)
 
         for index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(self.layers[index]):
@@ -231,7 +243,7 @@ class Perceptron:
                     neuron.error += (
                         front_neuron.weights[neuron_index] * front_neuron.error
                     )
-                neuron.error *= self.derivative(neuron.output)
+                neuron.error *= self.derivatives[index](neuron.output)
 
         # Weight update
         for layer in self.layers:
