@@ -19,21 +19,20 @@ if __name__ == "__main__":
             ]
         ]
 
-    data = normalize(data)
     targets, *features = transpose(data)
     targets = [[value] for value in targets]
-    features = transpose(features)
+    features = normalize(transpose(features))
 
     print("Solving with single perceptron...")
     random.seed(0)
 
     model = Perceptron(
-        inputs=7, layer_sizes=[1], activation="sigmoid", init_method="he"
+        inputs=7, layer_sizes=[1], activations="linear", init_method="he"
     )
     model.train(
         training_inputs=features,
         training_targets=targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.01,
         metrics=["sse", "mae"],
     )
@@ -45,13 +44,16 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=7, layer_sizes=[10, 5, 1], activation="sigmoid", init_method="he"
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
     )
     model.train(
         training_inputs=features,
         training_targets=targets,
-        epochs=500,
-        base_learning_rate=0.01,
+        epochs=100,
+        base_learning_rate=0.0001,
         metrics=["sse", "mae"],
     )
 

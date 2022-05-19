@@ -32,12 +32,12 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=60, layer_sizes=[1], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[1], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
         training_targets=binary_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["binary_accuracy", "sse"],
     )
@@ -46,36 +46,36 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=60, layer_sizes=[2], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
         training_targets=categorical_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["categorical_accuracy", "sse"],
     )
 
     print("Solving with MLP as binary classification...")
     model = Perceptron(
-        inputs=60, layer_sizes=[2, 1], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2, 1], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
         training_targets=binary_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["binary_accuracy", "sse"],
     )
 
     print("Solving with MLP as categorical classification...")
     model = Perceptron(
-        inputs=60, layer_sizes=[2, 2], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2, 2], activations="sigmoid", init_method="he"
     )
     model.train(
         training_inputs=features,
         training_targets=categorical_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["categorical_accuracy", "sse"],
     )
@@ -84,13 +84,13 @@ if __name__ == "__main__":
     random.seed(0)
 
     model_params = dict(
-        inputs=60, layer_sizes=[2, 2], activation="sigmoid", init_method="he"
+        inputs=60, layer_sizes=[2, 2], activations="sigmoid", init_method="he"
     )
     cross_validation(
         inputs=features,
         targets=categorical_targets,
         fold_count=5,
-        epoch=500,
+        epoch=100,
         base_learning_rate=0.2,
         learning_rate_decay="linear",
         model_params=model_params,

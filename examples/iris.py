@@ -29,7 +29,7 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=4, layer_sizes=[4, 3, 3], activation="leaky_relu", init_method="he"
+        inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
     )
     model.train(
         training_inputs=features,
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     random.seed(0)
 
     model_params = dict(
-        inputs=4, layer_sizes=[4, 3, 3], activation="leaky_relu", init_method="he"
+        inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
     )
     cross_validation(
         inputs=features,
