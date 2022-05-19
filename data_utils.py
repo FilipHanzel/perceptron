@@ -16,24 +16,20 @@ def shuffle(features: List, targets: List) -> Tuple[List, List]:
     return features, targets
 
 
-def normalize(dataset: List[List[float]]) -> List[List[float]]:
-    row_length = len(dataset[0])
-
-    total_min = [None] * row_length
-    total_max = [None] * row_length
-    for record in dataset:
-        for idx, column in enumerate(record):
-            if total_min[idx] is None or total_min[idx] > column:
-                total_min[idx] = column
-            if total_max[idx] is None or total_max[idx] < column:
-                total_max[idx] = column
+def normalize(data: List[List[float]]) -> List[List[float]]:
+    columns = transpose(data)
+    total_min = []
+    total_max = []
+    for column in columns:
+        total_min.append(min(column))
+        total_max.append(max(column))
 
     normalized_dataset = [
         [
             (column - min_) / (max_ - min_)
             for column, min_, max_ in zip(record, total_min, total_max)
         ]
-        for record in dataset
+        for record in data
     ]
 
     return normalized_dataset
