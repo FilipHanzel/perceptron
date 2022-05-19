@@ -5,6 +5,7 @@ from typing import List, Tuple, Union, Type, Dict
 from tqdm import tqdm
 
 import data_utils
+import normalizers
 
 
 class Activation:
@@ -133,7 +134,7 @@ class Metric:
 
 
 class Perceptron:
-    __slots__ = ["activations", "derivatives", "layers"]
+    __slots__ = ["activations", "derivatives", "layers", "normalizer"]
 
     class Neuron:
         __slots__ = ["weights", "bias", "inputs", "output", "error"]
@@ -152,6 +153,7 @@ class Perceptron:
         layer_sizes: List[int],
         activations: Union[str, List[str]],
         init_method: str = "gauss",
+        normalization: str = None,
     ):
         if isinstance(activations, str):
             activations = [activations] * len(layer_sizes)
@@ -169,14 +171,6 @@ class Perceptron:
             layer_sizes
         ), "Amount of activations must match layers"
 
-        assert init_method in (
-            "uniform",
-            "gauss",
-            "zeros",
-            "he",
-            "xavier",
-        ), "Invalid weight initialization method"
-
         self.activations = [
             getattr(Activation, activation) for activation in activations
         ]
@@ -187,6 +181,14 @@ class Perceptron:
             self.derivatives = [
                 getattr(Derivative, activation) for activation in activations
             ]
+
+        assert init_method in (
+            "uniform",
+            "gauss",
+            "zeros",
+            "he",
+            "xavier",
+        ), "Invalid weight initialization method"
 
         input_sizes = [inputs, *layer_sizes]
 
@@ -199,7 +201,21 @@ class Perceptron:
             for (input_size, layer_size) in zip(input_sizes, layer_sizes)
         ]
 
+        assert normalization in (
+            "minmax",
+            "zscore",
+            None,
+        ), "Unknown normalization method"
+        if normalization is None:
+            self.normalizer = None
+        else:
+            self.normalizer = normalizers.get(normalization)()
+
     def predict(self, inputs: List[float]) -> List[float]:
+
+        if self.normalizer is not None:
+            inputs = self.normalizer(inputs)
+
         state = inputs
         for layer, activation in zip(self.layers, self.activations):
             state = [
@@ -214,6 +230,10 @@ class Perceptron:
     def update(
         self, inputs: List[float], targets: List[float], learning_rate: float
     ) -> Tuple[List[float], float]:
+
+        if self.normalizer is not None:
+            inputs = self.normalizer(inputs)
+
         # Forward pass
         for layer, activation in zip(self.layers, self.activations):
             state = []
@@ -273,6 +293,9 @@ class Perceptron:
 
         for metric in metrics:
             assert hasattr(Metric, metric), "Unsupported metric"
+
+        if self.normalizer is not None:
+            self.normalizer.adapt(training_inputs)
 
         progress = tqdm(
             range(epochs),
