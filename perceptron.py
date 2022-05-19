@@ -232,8 +232,9 @@ class Perceptron:
         # Error backpropagation
         *hidden_layers, output_layer = self.layers
 
-        for neuron, target, derivative in zip(output_layer, targets, self.derivatives):
-            neuron.error = (target - neuron.output) * derivative(neuron.output)
+        for neuron, target in zip(output_layer, targets):
+            neuron.error = target - neuron.output
+            neuron.error *= self.derivatives[-1](neuron.output)
 
         for index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(self.layers[index]):
