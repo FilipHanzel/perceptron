@@ -129,7 +129,7 @@ class Metric:
                 ]
             ) / len(prediction_list)
 
-        return mae
+        return mae / len(predictions)
 
 
 class Perceptron:
