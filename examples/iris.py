@@ -19,7 +19,8 @@ if __name__ == "__main__":
         ]
 
     *features, targets = transpose(data)
-    features = normalize(transpose(features))
+    features = transpose(features)
+    normalized_features = normalize(features)
     mapping, targets = to_categorical(targets)
 
     print("Labels mapping:")
@@ -32,13 +33,35 @@ if __name__ == "__main__":
         inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
     )
     model.train(
-        training_inputs=features,
+        training_inputs=normalized_features,
         training_targets=targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.01,
         metrics=["categorical_accuracy", "sse"],
     )
 
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"\t{target=}, prediction={model.predict(feature)}")
+
+    print("Predicting with untrained model with builtin minmax normalization...")
+    model = Perceptron(
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        normalization="minmax",
+    )
+    for feature, target in zip(features[:5], targets[:5]):
+        print(f"\t{target=}, prediction={model.predict(feature)}")
+
+    print("Predicting with untrained model with builtin zscore normalization...")
+    model = Perceptron(
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        normalization="zscore",
+    )
     for feature, target in zip(features[:5], targets[:5]):
         print(f"\t{target=}, prediction={model.predict(feature)}")
 
@@ -49,10 +72,31 @@ if __name__ == "__main__":
         inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
     )
     cross_validation(
+        inputs=normalized_features,
+        targets=targets,
+        fold_count=5,
+        epoch=100,
+        base_learning_rate=0.01,
+        learning_rate_decay="linear",
+        model_params=model_params,
+        metrics=["categorical_accuracy", "sse"],
+    )
+
+    print("Cross validating with builtin zscore normalization...")
+    random.seed(0)
+
+    model_params = dict(
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        normalization="zscore",
+    )
+    cross_validation(
         inputs=features,
         targets=targets,
         fold_count=5,
-        epoch=500,
+        epoch=100,
         base_learning_rate=0.01,
         learning_rate_decay="linear",
         model_params=model_params,
