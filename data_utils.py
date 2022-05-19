@@ -35,12 +35,12 @@ def normalize(data: List[List[float]]) -> List[List[float]]:
     return normalized_dataset
 
 
-def drop_columns(dataset, column_index: Union[int, List[int]]):
-    """Drop columns of the dataset (inplace). Supports negative indexes."""
+def drop_columns(data, column_index: Union[int, List[int]]):
+    """Drop columns of the data (inplace). Supports negative indexes."""
     if isinstance(column_index, int):
         column_index = [column_index]
 
-    record_length = len(dataset[0])
+    record_length = len(data[0])
 
     # Support negative indexes
     for index in column_index:
@@ -51,10 +51,10 @@ def drop_columns(dataset, column_index: Union[int, List[int]]):
     ]
 
     for index in sorted(column_index, reverse=True):
-        for line in dataset:
+        for line in data:
             del line[index]
 
-    return dataset
+    return data
 
 
 def to_binary(column: List[str]) -> List[List[int]]:
