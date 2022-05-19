@@ -21,7 +21,7 @@ if __name__ == "__main__":
 
     targets, *features = transpose(data)
     targets = [[value] for value in targets]
-    features = normalize(transpose(features))
+    normalized_features = normalize(transpose(features))
 
     print("Solving with single perceptron...")
     random.seed(0)
@@ -30,14 +30,14 @@ if __name__ == "__main__":
         inputs=7, layer_sizes=[1], activations="linear", init_method="he"
     )
     model.train(
-        training_inputs=features,
+        training_inputs=normalized_features,
         training_targets=targets,
         epochs=100,
         base_learning_rate=0.01,
         metrics=["sse", "mae"],
     )
 
-    for feature, target in zip(features[:5], targets[:5]):
+    for feature, target in zip(normalized_features[:5], targets[:5]):
         print(f"{target=}, prediction={model.predict(feature)}")
 
     print("Solving with MLP...")
@@ -50,12 +50,54 @@ if __name__ == "__main__":
         init_method="he",
     )
     model.train(
-        training_inputs=features,
+        training_inputs=normalized_features,
         training_targets=targets,
         epochs=100,
         base_learning_rate=0.0001,
         metrics=["sse", "mae"],
     )
 
-    for feature, target in zip(features[:5], targets[:5]):
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
+
+    print("Solving with MLP using builtin min-max normalization...")
+    random.seed(0)
+
+    model = Perceptron(
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
+        normalization="minmax",
+    )
+    model.train(
+        training_inputs=normalized_features,
+        training_targets=targets,
+        epochs=100,
+        base_learning_rate=0.0001,
+        metrics=["sse", "mae"],
+    )
+
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
+
+    print("Solving with MLP using builtin zscore normalization...")
+    random.seed(0)
+
+    model = Perceptron(
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
+        normalization="zscore",
+    )
+    model.train(
+        training_inputs=normalized_features,
+        training_targets=targets,
+        epochs=100,
+        base_learning_rate=0.0001,
+        metrics=["sse", "mae"],
+    )
+
+    for feature, target in zip(normalized_features[:5], targets[:5]):
         print(f"{target=}, prediction={model.predict(feature)}")
