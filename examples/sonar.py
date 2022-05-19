@@ -37,7 +37,7 @@ if __name__ == "__main__":
     model.train(
         training_inputs=features,
         training_targets=binary_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["binary_accuracy", "sse"],
     )
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     model.train(
         training_inputs=features,
         training_targets=categorical_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["categorical_accuracy", "sse"],
     )
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     model.train(
         training_inputs=features,
         training_targets=binary_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["binary_accuracy", "sse"],
     )
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     model.train(
         training_inputs=features,
         training_targets=categorical_targets,
-        epochs=500,
+        epochs=100,
         base_learning_rate=0.2,
         metrics=["categorical_accuracy", "sse"],
     )
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         inputs=features,
         targets=categorical_targets,
         fold_count=5,
-        epoch=500,
+        epoch=100,
         base_learning_rate=0.2,
         learning_rate_decay="linear",
         model_params=model_params,
