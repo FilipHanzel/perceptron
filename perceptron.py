@@ -146,12 +146,6 @@ class Perceptron:
             self.output: float = None
             self.error: float = None
 
-        def __str__(self):
-            return f"Neuron <weights: {self.weights}, bias: {self.bias}>"
-
-        def __repr__(self):
-            return self.__str__()
-
     def __init__(
         self,
         inputs: int,
