@@ -4,8 +4,10 @@ from typing import List, Tuple, Union, Type, Dict
 
 from tqdm import tqdm
 
+from neuron import Neuron
 import data_utils
 import normalizers
+import optimizers
 
 
 class Activation:
@@ -134,18 +136,13 @@ class Metric:
 
 
 class Perceptron:
-    __slots__ = ["activations", "derivatives", "layers", "normalizer"]
-
-    class Neuron:
-        __slots__ = ["weights", "bias", "inputs", "output", "error"]
-
-        def __init__(self, weights: List[float], bias: float):
-            self.weights = weights
-            self.bias = bias
-
-            self.inputs: List[float] = None
-            self.output: float = None
-            self.error: float = None
+    __slots__ = [
+        "activations",
+        "derivatives",
+        "layers",
+        "normalizer",
+        "optimizer",
+    ]
 
     def __init__(
         self,
@@ -154,7 +151,9 @@ class Perceptron:
         activations: Union[str, List[str]],
         init_method: str = "gauss",
         normalization: str = None,
+        optimizer: str = "SGD",
     ):
+        # Initialize layers activations
         if isinstance(activations, str):
             activations = [activations] * len(layer_sizes)
 
@@ -182,6 +181,7 @@ class Perceptron:
                 getattr(Derivative, activation) for activation in activations
             ]
 
+        # Initialize layers weights
         assert init_method in (
             "uniform",
             "gauss",
@@ -195,12 +195,13 @@ class Perceptron:
         init_method = getattr(WeightInit, init_method)
         self.layers = [
             [
-                self.Neuron(weights=init_method(input_size), bias=0.0)
+                Neuron(weights=init_method(input_size), bias=0.0)
                 for _ in range(layer_size)
             ]
             for (input_size, layer_size) in zip(input_sizes, layer_sizes)
         ]
 
+        # Initialize input normalization method
         assert normalization in (
             "minmax",
             "zscore",
@@ -208,8 +209,23 @@ class Perceptron:
         ), "Unknown normalization method"
         if normalization is None:
             self.normalizer = None
+        elif normalization == "minmax":
+            self.normalizer = normalizers.MinMax()
+        elif normalization == "zscore":
+            self.normalizer = normalizers.ZScore()
         else:
-            self.normalizer = normalizers.get(normalization)()
+            raise ValueError("Unknown normalization method")
+
+        # Initialize model optimizer using default parameters
+        optimizer = optimizer.lower()
+        if optimizer == "sgd":
+            self.optimizer = optimizers.SGD()
+        elif optimizer == "momentum":
+            self.optimizer = optimizers.Momentum()
+        else:
+            raise ValueError("Unknown optimization method")
+
+        self.optimizer.init(self.layers)
 
     def predict(self, inputs: List[float]) -> List[float]:
 
@@ -228,7 +244,10 @@ class Perceptron:
         return state
 
     def update(
-        self, inputs: List[float], targets: List[float], learning_rate: float
+        self,
+        inputs: List[float],
+        targets: List[float],
+        learning_rate: float,
     ) -> Tuple[List[float], float]:
 
         if self.normalizer is not None:
@@ -267,11 +286,7 @@ class Perceptron:
                 neuron.error *= self.derivatives[index](neuron.output)
 
         # Weight update
-        for layer in self.layers:
-            for neuron in layer:
-                for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.weights[weight_index] += learning_rate * neuron.error * inp
-                neuron.bias += learning_rate * neuron.error
+        self.optimizer(self.layers, learning_rate)
 
         return output
 

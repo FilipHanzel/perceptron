@@ -30,7 +30,11 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        optimizer="momentum",
     )
     model.train(
         training_inputs=normalized_features,
@@ -75,7 +79,28 @@ if __name__ == "__main__":
         inputs=normalized_features,
         targets=targets,
         fold_count=5,
-        epoch=100,
+        epoch=30,
+        base_learning_rate=0.01,
+        learning_rate_decay="linear",
+        model_params=model_params,
+        metrics=["categorical_accuracy", "sse"],
+    )
+
+    print("Cross validating with momentum...")
+    random.seed(0)
+
+    model_params = dict(
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        optimizer="momentum",
+    )
+    cross_validation(
+        inputs=normalized_features,
+        targets=targets,
+        fold_count=5,
+        epoch=30,
         base_learning_rate=0.01,
         learning_rate_decay="linear",
         model_params=model_params,
@@ -96,7 +121,29 @@ if __name__ == "__main__":
         inputs=features,
         targets=targets,
         fold_count=5,
-        epoch=100,
+        epoch=30,
+        base_learning_rate=0.01,
+        learning_rate_decay="linear",
+        model_params=model_params,
+        metrics=["categorical_accuracy", "sse"],
+    )
+
+    print("Cross validating with builtin zscore normalization and momentum...")
+    random.seed(0)
+
+    model_params = dict(
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        normalization="zscore",
+        optimizer="momentum",
+    )
+    cross_validation(
+        inputs=features,
+        targets=targets,
+        fold_count=5,
+        epoch=30,
         base_learning_rate=0.01,
         learning_rate_decay="linear",
         model_params=model_params,
