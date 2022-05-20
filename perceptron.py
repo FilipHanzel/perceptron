@@ -4,8 +4,10 @@ from typing import List, Tuple, Union, Type, Dict
 
 from tqdm import tqdm
 
+from neuron import Neuron
 import data_utils
 import normalizers
+import optimizers
 
 
 class Activation:
@@ -133,34 +135,13 @@ class Metric:
         return mae / len(predictions)
 
 
-class Neuron:
-    __slots__ = [
-        "weights",
-        "bias",
-        "inputs",
-        "output",
-        "error",
-        "velocities",
-        "bias_velocity",
-    ]
-
-    def __init__(self, weights: List[float], bias: float):
-        self.weights = weights
-        self.bias = bias
-
-        self.inputs: List[float] = None
-        self.output: float = None
-        self.error: float = None
-        self.velocities: List[float] = None
-        self.bias_velocity: float = None
-
-
 class Perceptron:
     __slots__ = [
         "activations",
         "derivatives",
         "layers",
         "normalizer",
+        "optimizer",
     ]
 
     def __init__(
@@ -170,7 +151,9 @@ class Perceptron:
         activations: Union[str, List[str]],
         init_method: str = "gauss",
         normalization: str = None,
+        optimizer: str = "SGD",
     ):
+        # Initialize layers activations
         if isinstance(activations, str):
             activations = [activations] * len(layer_sizes)
 
@@ -198,6 +181,7 @@ class Perceptron:
                 getattr(Derivative, activation) for activation in activations
             ]
 
+        # Initialize layers weights
         assert init_method in (
             "uniform",
             "gauss",
@@ -217,6 +201,7 @@ class Perceptron:
             for (input_size, layer_size) in zip(input_sizes, layer_sizes)
         ]
 
+        # Initialize input normalization method
         assert normalization in (
             "minmax",
             "zscore",
@@ -227,12 +212,16 @@ class Perceptron:
         else:
             self.normalizer = normalizers.get(normalization)()
 
-    def init_momentum(self):
-        """Initializes neurons velocities with zeros. Has to be invoked to use momentum."""
-        for layer in self.layers:
-            for neuron in layer:
-                neuron.velocities = [0] * len(neuron.weights)
-                neuron.bias_velocity = 0
+        # Initialize model optimizer using default parameters
+        optimizer = optimizer.lower()
+        if optimizer == "sgd":
+            self.optimizer = optimizers.SGD()
+        elif optimizer == "momentum":
+            self.optimizer = optimizers.Momentum()
+        else:
+            raise ValueError("Unknown optimization method")
+
+        self.optimizer.init(self.layers)
 
     def predict(self, inputs: List[float]) -> List[float]:
 
@@ -255,7 +244,6 @@ class Perceptron:
         inputs: List[float],
         targets: List[float],
         learning_rate: float,
-        momentum: float = None,
     ) -> Tuple[List[float], float]:
 
         if self.normalizer is not None:
@@ -294,24 +282,7 @@ class Perceptron:
                 neuron.error *= self.derivatives[index](neuron.output)
 
         # Weight update
-        for layer in self.layers:
-            for neuron in layer:
-                if momentum is not None:
-                    for weight_index, inp in enumerate(neuron.inputs):
-                        neuron.velocities[weight_index] *= momentum
-                        neuron.velocities[weight_index] += (
-                            learning_rate * neuron.error * inp
-                        )
-                        neuron.weights[weight_index] += neuron.velocities[weight_index]
-                    neuron.bias_velocity *= momentum
-                    neuron.bias_velocity += learning_rate * neuron.error
-                    neuron.bias += neuron.bias_velocity
-                else:
-                    for weight_index, inp in enumerate(neuron.inputs):
-                        neuron.weights[weight_index] += (
-                            learning_rate * neuron.error * inp
-                        )
-                    neuron.bias += learning_rate * neuron.error
+        self.optimizer(self.layers, learning_rate)
 
         return output
 
@@ -325,7 +296,6 @@ class Perceptron:
         metrics: List[str] = ["sse"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
-        momentum: float = None,
     ) -> List:
         assert learning_rate_decay in [
             None,
@@ -337,9 +307,6 @@ class Perceptron:
 
         if self.normalizer is not None:
             self.normalizer.adapt(training_inputs)
-
-        if momentum is not None:
-            self.init_momentum()
 
         progress = tqdm(
             range(epochs),
@@ -363,7 +330,7 @@ class Perceptron:
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
 
             for inputs, target in zip(training_inputs, training_targets):
-                prediction = self.update(inputs, target, learning_rate, momentum)
+                prediction = self.update(inputs, target, learning_rate)
 
             predictions = [self.predict(inputs) for inputs in training_inputs]
             calculated_metrics = {
@@ -390,7 +357,6 @@ def cross_validation(
     learning_rate_decay: str,
     model_params: Dict,
     metrics: List[str] = ["sse"],
-    momentum: float = None,
 ):
     order = list(range(len(inputs)))
     random.shuffle(order)
@@ -418,5 +384,4 @@ def cross_validation(
             metrics=metrics,
             validation_inputs=test_inputs,
             validation_targets=test_targets,
-            momentum=momentum,
         )

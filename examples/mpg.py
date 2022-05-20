@@ -111,6 +111,7 @@ if __name__ == "__main__":
         activations=["leaky_relu"] * 3 + ["linear"],
         init_method="he",
         normalization="zscore",
+        optimizer="momentum",
     )
     model.train(
         training_inputs=normalized_features,
@@ -118,7 +119,6 @@ if __name__ == "__main__":
         epochs=100,
         base_learning_rate=0.0001,
         metrics=["sse", "mae"],
-        momentum=0.9,
     )
 
     for feature, target in zip(normalized_features[:5], targets[:5]):

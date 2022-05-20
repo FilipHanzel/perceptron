@@ -30,7 +30,11 @@ if __name__ == "__main__":
     random.seed(0)
 
     model = Perceptron(
-        inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        optimizer="momentum",
     )
     model.train(
         training_inputs=normalized_features,
@@ -38,7 +42,6 @@ if __name__ == "__main__":
         epochs=100,
         base_learning_rate=0.01,
         metrics=["categorical_accuracy", "sse"],
-        momentum=0.9,
     )
 
     for feature, target in zip(normalized_features[:5], targets[:5]):
@@ -87,7 +90,11 @@ if __name__ == "__main__":
     random.seed(0)
 
     model_params = dict(
-        inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        optimizer="momentum",
     )
     cross_validation(
         inputs=normalized_features,
@@ -98,7 +105,6 @@ if __name__ == "__main__":
         learning_rate_decay="linear",
         model_params=model_params,
         metrics=["categorical_accuracy", "sse"],
-        momentum=0.9,
     )
 
     print("Cross validating with builtin zscore normalization...")
@@ -131,6 +137,7 @@ if __name__ == "__main__":
         activations="leaky_relu",
         init_method="he",
         normalization="zscore",
+        optimizer="momentum",
     )
     cross_validation(
         inputs=features,
@@ -141,5 +148,4 @@ if __name__ == "__main__":
         learning_rate_decay="linear",
         model_params=model_params,
         metrics=["categorical_accuracy", "sse"],
-        momentum=0.9,
     )
