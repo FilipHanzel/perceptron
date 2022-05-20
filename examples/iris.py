@@ -38,6 +38,7 @@ if __name__ == "__main__":
         epochs=100,
         base_learning_rate=0.01,
         metrics=["categorical_accuracy", "sse"],
+        momentum=0.9,
     )
 
     for feature, target in zip(normalized_features[:5], targets[:5]):
@@ -75,11 +76,29 @@ if __name__ == "__main__":
         inputs=normalized_features,
         targets=targets,
         fold_count=5,
-        epoch=100,
+        epoch=30,
         base_learning_rate=0.01,
         learning_rate_decay="linear",
         model_params=model_params,
         metrics=["categorical_accuracy", "sse"],
+    )
+
+    print("Cross validating with momentum...")
+    random.seed(0)
+
+    model_params = dict(
+        inputs=4, layer_sizes=[4, 3, 3], activations="leaky_relu", init_method="he"
+    )
+    cross_validation(
+        inputs=normalized_features,
+        targets=targets,
+        fold_count=5,
+        epoch=30,
+        base_learning_rate=0.01,
+        learning_rate_decay="linear",
+        model_params=model_params,
+        metrics=["categorical_accuracy", "sse"],
+        momentum=0.9,
     )
 
     print("Cross validating with builtin zscore normalization...")
@@ -96,9 +115,31 @@ if __name__ == "__main__":
         inputs=features,
         targets=targets,
         fold_count=5,
-        epoch=100,
+        epoch=30,
         base_learning_rate=0.01,
         learning_rate_decay="linear",
         model_params=model_params,
         metrics=["categorical_accuracy", "sse"],
+    )
+
+    print("Cross validating with builtin zscore normalization and momentum...")
+    random.seed(0)
+
+    model_params = dict(
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        normalization="zscore",
+    )
+    cross_validation(
+        inputs=features,
+        targets=targets,
+        fold_count=5,
+        epoch=30,
+        base_learning_rate=0.01,
+        learning_rate_decay="linear",
+        model_params=model_params,
+        metrics=["categorical_accuracy", "sse"],
+        momentum=0.9,
     )

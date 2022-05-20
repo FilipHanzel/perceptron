@@ -101,3 +101,25 @@ if __name__ == "__main__":
 
     for feature, target in zip(normalized_features[:5], targets[:5]):
         print(f"{target=}, prediction={model.predict(feature)}")
+
+    print("Solving with MLP using builtin zscore normalization and momentum...")
+    random.seed(0)
+
+    model = Perceptron(
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
+        normalization="zscore",
+    )
+    model.train(
+        training_inputs=normalized_features,
+        training_targets=targets,
+        epochs=100,
+        base_learning_rate=0.0001,
+        metrics=["sse", "mae"],
+        momentum=0.9,
+    )
+
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
