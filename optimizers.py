@@ -1,5 +1,5 @@
 from typing import List
-from abc import ABC
+from abc import ABC, abstractmethod
 
 from perceptron import Neuron
 
@@ -11,6 +11,7 @@ class Optimizer(ABC):
     def init(self, layers: List[List[Neuron]]) -> None:
         """Initialize parameters in neurons."""
 
+    @abstractmethod
     def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
         """Update weights based on state of neurons."""
 
