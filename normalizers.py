@@ -3,15 +3,6 @@ from typing import List
 import data_utils
 
 
-def get(normalizer: str):
-    normalizer = normalizer.lower()
-
-    if normalizer == "minmax":
-        return MinMax
-    if normalizer == "zscore":
-        return ZScore
-
-
 class MinMax:
     def __init__(self):
         self.mins = iter(lambda: 0, None)

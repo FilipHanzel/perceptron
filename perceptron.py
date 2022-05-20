@@ -209,8 +209,12 @@ class Perceptron:
         ), "Unknown normalization method"
         if normalization is None:
             self.normalizer = None
+        elif normalization == "minmax":
+            self.normalizer = normalizers.MinMax()
+        elif normalization == "zscore":
+            self.normalizer = normalizers.ZScore()
         else:
-            self.normalizer = normalizers.get(normalization)()
+            raise ValueError("Unknown normalization method")
 
         # Initialize model optimizer using default parameters
         optimizer = optimizer.lower()
