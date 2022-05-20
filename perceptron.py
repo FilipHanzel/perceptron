@@ -134,10 +134,23 @@ class Metric:
 
 
 class Perceptron:
-    __slots__ = ["activations", "derivatives", "layers", "normalizer"]
+    __slots__ = [
+        "activations",
+        "derivatives",
+        "layers",
+        "normalizer",
+    ]
 
     class Neuron:
-        __slots__ = ["weights", "bias", "inputs", "output", "error"]
+        __slots__ = [
+            "weights",
+            "bias",
+            "inputs",
+            "output",
+            "error",
+            "velocities",
+            "bias_velocity",
+        ]
 
         def __init__(self, weights: List[float], bias: float):
             self.weights = weights
@@ -146,6 +159,8 @@ class Perceptron:
             self.inputs: List[float] = None
             self.output: float = None
             self.error: float = None
+            self.velocities: List[float] = None
+            self.bias_velocity: float = None
 
     def __init__(
         self,
@@ -211,6 +226,13 @@ class Perceptron:
         else:
             self.normalizer = normalizers.get(normalization)()
 
+    def init_momentum(self):
+        """Initializes neurons velocities with zeros. Has to be invoked to use momentum."""
+        for layer in self.layers:
+            for neuron in layer:
+                neuron.velocities = [0] * len(neuron.weights)
+                neuron.bias_velocity = 0
+
     def predict(self, inputs: List[float]) -> List[float]:
 
         if self.normalizer is not None:
@@ -228,7 +250,11 @@ class Perceptron:
         return state
 
     def update(
-        self, inputs: List[float], targets: List[float], learning_rate: float
+        self,
+        inputs: List[float],
+        targets: List[float],
+        learning_rate: float,
+        momentum: float = None,
     ) -> Tuple[List[float], float]:
 
         if self.normalizer is not None:
@@ -269,9 +295,22 @@ class Perceptron:
         # Weight update
         for layer in self.layers:
             for neuron in layer:
-                for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.weights[weight_index] += learning_rate * neuron.error * inp
-                neuron.bias += learning_rate * neuron.error
+                if momentum is not None:
+                    for weight_index, inp in enumerate(neuron.inputs):
+                        neuron.velocities[weight_index] *= momentum
+                        neuron.velocities[weight_index] += (
+                            learning_rate * neuron.error * inp
+                        )
+                        neuron.weights[weight_index] += neuron.velocities[weight_index]
+                    neuron.bias_velocity *= momentum
+                    neuron.bias_velocity += learning_rate * neuron.error
+                    neuron.bias += neuron.bias_velocity
+                else:
+                    for weight_index, inp in enumerate(neuron.inputs):
+                        neuron.weights[weight_index] += (
+                            learning_rate * neuron.error * inp
+                        )
+                    neuron.bias += learning_rate * neuron.error
 
         return output
 
@@ -285,6 +324,7 @@ class Perceptron:
         metrics: List[str] = ["sse"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
+        momentum: float = None,
     ) -> List:
         assert learning_rate_decay in [
             None,
@@ -296,6 +336,9 @@ class Perceptron:
 
         if self.normalizer is not None:
             self.normalizer.adapt(training_inputs)
+
+        if momentum is not None:
+            self.init_momentum()
 
         progress = tqdm(
             range(epochs),
@@ -319,7 +362,7 @@ class Perceptron:
                 learning_rate = linear_decay(base_learning_rate, epoch, epochs)
 
             for inputs, target in zip(training_inputs, training_targets):
-                prediction = self.update(inputs, target, learning_rate)
+                prediction = self.update(inputs, target, learning_rate, momentum)
 
             predictions = [self.predict(inputs) for inputs in training_inputs]
             calculated_metrics = {
@@ -346,6 +389,7 @@ def cross_validation(
     learning_rate_decay: str,
     model_params: Dict,
     metrics: List[str] = ["sse"],
+    momentum: float = None,
 ):
     order = list(range(len(inputs)))
     random.shuffle(order)
@@ -373,4 +417,5 @@ def cross_validation(
             metrics=metrics,
             validation_inputs=test_inputs,
             validation_targets=test_targets,
+            momentum=momentum,
         )
