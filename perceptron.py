@@ -133,6 +133,28 @@ class Metric:
         return mae / len(predictions)
 
 
+class Neuron:
+    __slots__ = [
+        "weights",
+        "bias",
+        "inputs",
+        "output",
+        "error",
+        "velocities",
+        "bias_velocity",
+    ]
+
+    def __init__(self, weights: List[float], bias: float):
+        self.weights = weights
+        self.bias = bias
+
+        self.inputs: List[float] = None
+        self.output: float = None
+        self.error: float = None
+        self.velocities: List[float] = None
+        self.bias_velocity: float = None
+
+
 class Perceptron:
     __slots__ = [
         "activations",
@@ -140,27 +162,6 @@ class Perceptron:
         "layers",
         "normalizer",
     ]
-
-    class Neuron:
-        __slots__ = [
-            "weights",
-            "bias",
-            "inputs",
-            "output",
-            "error",
-            "velocities",
-            "bias_velocity",
-        ]
-
-        def __init__(self, weights: List[float], bias: float):
-            self.weights = weights
-            self.bias = bias
-
-            self.inputs: List[float] = None
-            self.output: float = None
-            self.error: float = None
-            self.velocities: List[float] = None
-            self.bias_velocity: float = None
 
     def __init__(
         self,
@@ -210,7 +211,7 @@ class Perceptron:
         init_method = getattr(WeightInit, init_method)
         self.layers = [
             [
-                self.Neuron(weights=init_method(input_size), bias=0.0)
+                Neuron(weights=init_method(input_size), bias=0.0)
                 for _ in range(layer_size)
             ]
             for (input_size, layer_size) in zip(input_sizes, layer_sizes)
