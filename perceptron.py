@@ -222,6 +222,8 @@ class Perceptron:
             self.optimizer = optimizers.SGD()
         elif optimizer == "momentum":
             self.optimizer = optimizers.Momentum()
+        elif optimizer == "adagrad":
+            self.optimizer = optimizers.Adagrad()
         else:
             raise ValueError("Unknown optimization method")
 

@@ -10,6 +10,8 @@ class Neuron:
         "error",
         "velocities",
         "bias_velocity",
+        "scale",
+        "bias_scale",
     ]
 
     def __init__(self, weights: List[float], bias: float):
