@@ -56,7 +56,32 @@ class Nesterov(Optimizer):
 
 
 class Adagrad(Optimizer):
-    pass
+    def __init__(self):
+        self.epsilon = 1e-8
+
+    def init(self, layers: List[List[Neuron]]) -> None:
+        """Initializes neurons velocities with zeros. Has to be invoked to use adagrad."""
+        for layer in layers:
+            for neuron in layer:
+                neuron.scale = [0.1] * len(neuron.weights)
+                neuron.bias_scale = 0.1
+
+    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
+        for layer in layers:
+            for neuron in layer:
+                for weight_index, inp in enumerate(neuron.inputs):
+                    neuron.scale[weight_index] += (neuron.error * inp) ** 2
+                    neuron.weights[weight_index] += (
+                        learning_rate
+                        * (neuron.error * inp)
+                        / (self.epsilon + neuron.scale[weight_index] ** 0.5)
+                    )
+                neuron.bias_scale += (neuron.error) ** 2
+                neuron.bias += (
+                    learning_rate
+                    * (neuron.error)
+                    / (self.epsilon + neuron.bias_scale**0.5)
+                )
 
 
 class RMSprop(Optimizer):
