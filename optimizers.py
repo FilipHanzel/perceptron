@@ -56,31 +56,35 @@ class Nesterov(Optimizer):
 
 
 class Adagrad(Optimizer):
-    def __init__(self):
-        self.epsilon = 1e-8
+    def __init__(self, epsilon: float = 1e-8, initial_accumulator_value: float = 0.1):
+        self.epsilon = epsilon
+        self.initial_accumulator_value = 0.1
 
     def init(self, layers: List[List[Neuron]]) -> None:
-        """Initializes neurons velocities with zeros. Has to be invoked to use adagrad."""
+        """Initializes neurons accumulators with zeros. Has to be invoked to use adagrad."""
         for layer in layers:
             for neuron in layer:
-                neuron.scale = [0.1] * len(neuron.weights)
-                neuron.bias_scale = 0.1
+                neuron.accumulator = [self.initial_accumulator_value] * len(
+                    neuron.weights
+                )
+                neuron.bias_accumulator = self.initial_accumulator_value
 
     def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
         for layer in layers:
             for neuron in layer:
                 for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.scale[weight_index] += (neuron.error * inp) ** 2
-                    neuron.weights[weight_index] += (
-                        learning_rate
-                        * (neuron.error * inp)
-                        / (self.epsilon + neuron.scale[weight_index] ** 0.5)
-                    )
-                neuron.bias_scale += (neuron.error) ** 2
-                neuron.bias += (
-                    learning_rate
-                    * (neuron.error)
-                    / (self.epsilon + neuron.bias_scale**0.5)
+                    gradient = neuron.error * inp
+                    neuron.accumulator[weight_index] += gradient**2
+
+                    scale = self.epsilon + neuron.accumulator[weight_index] ** 0.5
+                    neuron.weights[weight_index] += learning_rate * gradient / scale
+
+                bias_gradient = neuron.error
+                neuron.bias_accumulator += bias_gradient**2
+
+                bias_scale = self.epsilon + neuron.bias_accumulator**0.5
+                neuron.bias += learning_rate * bias_gradient / bias_scale
+
                 )
 
 
