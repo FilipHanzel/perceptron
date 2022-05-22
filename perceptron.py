@@ -222,6 +222,8 @@ class Perceptron:
             self.optimizer = optimizers.SGD()
         elif optimizer == "momentum":
             self.optimizer = optimizers.Momentum()
+        elif optimizer == "nesterov":
+            self.optimizer = optimizers.Nesterov()
         elif optimizer == "adagrad":
             self.optimizer = optimizers.Adagrad()
         elif optimizer == "rmsprop":
@@ -231,7 +233,7 @@ class Perceptron:
         else:
             raise ValueError("Unknown optimization method")
 
-        self.optimizer.init(self.layers)
+        self.optimizer.init(self)
 
     def predict(self, inputs: List[float]) -> List[float]:
 
@@ -259,42 +261,7 @@ class Perceptron:
         if self.normalizer is not None:
             inputs = self.normalizer(inputs)
 
-        # Forward pass
-        for layer, activation in zip(self.layers, self.activations):
-            state = []
-            for neuron in layer:
-                neuron.inputs = inputs
-
-                neuron.output = neuron.bias
-                for w, i in zip(neuron.weights, neuron.inputs):
-                    neuron.output += w * i
-                neuron.output = activation(neuron.output)
-
-                state.append(neuron.output)
-            inputs = state
-        output = state
-
-        # Error backpropagation
-        *hidden_layers, output_layer = self.layers
-
-        for neuron, target in zip(output_layer, targets):
-            neuron.error = target - neuron.output
-            neuron.error *= self.derivatives[-1](neuron.output)
-
-        for index in reversed(range(len(hidden_layers))):
-            for neuron_index, neuron in enumerate(self.layers[index]):
-
-                neuron.error = 0.0
-                for front_neuron in self.layers[index + 1]:
-                    neuron.error += (
-                        front_neuron.weights[neuron_index] * front_neuron.error
-                    )
-                neuron.error *= self.derivatives[index](neuron.output)
-
-        # Weight update
-        self.optimizer(self.layers, learning_rate)
-
-        return output
+        return self.optimizer(inputs, targets, learning_rate)
 
     def train(
         self,
