@@ -125,7 +125,50 @@ class Momentum(Optimizer):
 
 
 class Nesterov(Optimizer):
-    pass
+    def __init__(self, gamma: float = 0.9):
+        self.gamma = gamma
+
+    def init(self, model: "Perceptron") -> None:
+        super().init(model)
+
+        for layer in self.model.layers:
+            for neuron in layer:
+                neuron.velocities = [0] * len(neuron.weights)
+                neuron.bias_velocity = 0
+
+    def __call__(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+
+        for layer in self.model.layers:
+            for neuron in layer:
+                neuron.weights_cache = neuron.weights
+                neuron.weights = [
+                    weight + self.gamma * velocity
+                    for weight, velocity in zip(neuron.weights, neuron.velocities)
+                ]
+
+        output = self.forward_pass(inputs)
+        self.backprop(targets)
+
+        for layer in self.model.layers:
+            for neuron in layer:
+                neuron.weights = neuron.weights_cache
+
+        for layer in self.model.layers:
+            for neuron in layer:
+                lre = learning_rate * neuron.error
+
+                for weight_index, inp in enumerate(neuron.inputs):
+                    neuron.velocities[weight_index] = (
+                        neuron.velocities[weight_index] * self.gamma + lre * inp
+                    )
+                    neuron.weights[weight_index] += neuron.velocities[weight_index]
+
+                neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
+                neuron.bias += neuron.bias_velocity
+
+        return output
 
 
 class Adagrad(Optimizer):

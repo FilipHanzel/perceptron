@@ -10,6 +10,7 @@ class Neuron:
         "error",
         "velocities",
         "bias_velocity",
+        "weights_cache",
         "accumulator",
         "bias_accumulator",
         "first_moment_accumulator",
@@ -27,6 +28,7 @@ class Neuron:
         self.error: float = None
         self.velocities: List[float] = None
         self.bias_velocity: float = None
+        self.weights_cache: List[float] = None
         self.accumulator: float = None
         self.bias_accumulator: float = None
         self.first_moment_accumulator: float = None
