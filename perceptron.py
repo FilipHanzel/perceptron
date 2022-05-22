@@ -224,6 +224,8 @@ class Perceptron:
             self.optimizer = optimizers.Momentum()
         elif optimizer == "adagrad":
             self.optimizer = optimizers.Adagrad()
+        elif optimizer == "rmsprop":
+            self.optimizer = optimizers.RMSprop()
         else:
             raise ValueError("Unknown optimization method")
 

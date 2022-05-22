@@ -171,3 +171,25 @@ if __name__ == "__main__":
         model_params=model_params,
         metrics=["categorical_accuracy", "sse"],
     )
+
+    print("Cross validating with builtin zscore normalization and rmsprop...")
+    random.seed(0)
+
+    model_params = dict(
+        inputs=4,
+        layer_sizes=[4, 3, 3],
+        activations="leaky_relu",
+        init_method="he",
+        normalization="zscore",
+        optimizer="rmsprop",
+    )
+    cross_validation(
+        inputs=features,
+        targets=targets,
+        fold_count=5,
+        epoch=10,
+        base_learning_rate=0.1,
+        learning_rate_decay="linear",
+        model_params=model_params,
+        metrics=["categorical_accuracy", "sse"],
+    )
