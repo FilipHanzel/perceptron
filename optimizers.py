@@ -324,6 +324,13 @@ class Adam(Optimizer):
                     1 - self.beta_2
                 ) * bias_gradient**2
 
+                f_corrected = neuron.first_moment_bias_accumulator / (
+                    1 - self.beta_1**self.step
+                )
+                s_corrected = neuron.second_moment_bias_accumulator / (
+                    1 - self.beta_2**self.step
+                )
+
                 neuron.bias += (
                     learning_rate * f_corrected / (self.epsilon + s_corrected**0.5)
                 )
