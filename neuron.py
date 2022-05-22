@@ -12,6 +12,10 @@ class Neuron:
         "bias_velocity",
         "accumulator",
         "bias_accumulator",
+        "first_moment_accumulator",
+        "second_moment_accumulator",
+        "first_moment_bias_accumulator",
+        "second_moment_bias_accumulator",
     ]
 
     def __init__(self, weights: List[float], bias: float):
@@ -25,3 +29,7 @@ class Neuron:
         self.bias_velocity: float = None
         self.accumulator: float = None
         self.bias_accumulator: float = None
+        self.first_moment_accumulator: float = None
+        self.second_moment_accumulator: float = None
+        self.first_moment_bias_accumulator: float = None
+        self.second_moment_bias_accumulator: float = None
