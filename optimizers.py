@@ -1,43 +1,114 @@
 from typing import List
 from abc import ABC, abstractmethod
 
-from perceptron import Neuron
-
 
 class Optimizer(ABC):
     def __init__(self, *args, **kwargs):
         """Initialize all necessary parameters."""
 
-    def init(self, layers: List[List[Neuron]]) -> None:
-        """Initialize parameters in neurons."""
+    def init(self, model: "Perceptron") -> None:
+        """Store reference to the model. Initialize neurons parameters if needed.
+
+        Invoking this method is necessary in order to use any optimizer."""
+
+        self.model = model
+
+    def forward_pass(self, inputs) -> None:
+        """Pass inputs through the model.
+
+        Each neuron has to store its inputs and output.
+        It is needed for backprop and weight update."""
+
+        layers = self.model.layers
+        activations = self.model.activations
+
+        for layer, activation in zip(layers, activations):
+            state = []
+            for neuron in layer:
+                neuron.inputs = inputs
+
+                neuron.output = neuron.bias
+                for w, i in zip(neuron.weights, neuron.inputs):
+                    neuron.output += w * i
+                neuron.output = activation(neuron.output)
+
+                state.append(neuron.output)
+            inputs = state
+        output = state
+
+        return output
+
+    def backprop(self, targets) -> None:
+        """Calculate error and propagate it backwards through the model.
+
+        Each neuron has to store its error needed for weight update."""
+
+        derivatives = self.model.derivatives
+        layers = self.model.layers
+        *hidden_layers, output_layer = layers
+
+        for neuron, target in zip(output_layer, targets):
+            neuron.error = target - neuron.output
+            neuron.error *= derivatives[-1](neuron.output)
+
+        for layer_index in reversed(range(len(hidden_layers))):
+            for neuron_index, neuron in enumerate(layers[layer_index]):
+
+                neuron.error = 0.0
+                for front_neuron in layers[layer_index + 1]:
+                    neuron.error += (
+                        front_neuron.weights[neuron_index] * front_neuron.error
+                    )
+                neuron.error *= derivatives[layer_index](neuron.output)
+
+    def update(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+        """Update weights. Synonym to __call__."""
+        return self(inputs, targets, learning_rate)
 
     @abstractmethod
-    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
-        """Update weights based on state of neurons."""
+    def __call__(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+        """Update weights."""
 
 
 class SGD(Optimizer):
-    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
-        for layer in layers:
+    def __call__(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+        output = self.forward_pass(inputs)
+        self.backprop(targets)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 for weight_index, inp in enumerate(neuron.inputs):
                     neuron.weights[weight_index] += learning_rate * neuron.error * inp
                 neuron.bias += learning_rate * neuron.error
+
+        return output
 
 
 class Momentum(Optimizer):
     def __init__(self, gamma: float = 0.9):
         self.gamma = gamma
 
-    def init(self, layers: List[List[Neuron]]) -> None:
-        """Initializes neurons velocities with zeros. Has to be invoked to use momentum."""
-        for layer in layers:
+    def init(self, model: "Perceptron") -> None:
+        super().init(model)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 neuron.velocities = [0] * len(neuron.weights)
                 neuron.bias_velocity = 0
 
-    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
-        for layer in layers:
+    def __call__(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+        output = self.forward_pass(inputs)
+        self.backprop(targets)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 lre = learning_rate * neuron.error
 
@@ -50,6 +121,8 @@ class Momentum(Optimizer):
                 neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
                 neuron.bias += neuron.bias_velocity
 
+        return output
+
 
 class Nesterov(Optimizer):
     pass
@@ -60,17 +133,23 @@ class Adagrad(Optimizer):
         self.epsilon = epsilon
         self.initial_accumulator_value = 0.1
 
-    def init(self, layers: List[List[Neuron]]) -> None:
-        """Initializes neurons accumulators with zeros. Has to be invoked to use adagrad."""
-        for layer in layers:
+    def init(self, model: "Perceptron") -> None:
+        super().init(model)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 neuron.accumulator = [self.initial_accumulator_value] * len(
                     neuron.weights
                 )
                 neuron.bias_accumulator = self.initial_accumulator_value
 
-    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
-        for layer in layers:
+    def __call__(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+        output = self.forward_pass(inputs)
+        self.backprop(targets)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 for weight_index, inp in enumerate(neuron.inputs):
                     gradient = neuron.error * inp
@@ -85,6 +164,8 @@ class Adagrad(Optimizer):
                 bias_scale = self.epsilon + neuron.bias_accumulator**0.5
                 neuron.bias += learning_rate * bias_gradient / bias_scale
 
+        return output
+
 
 class RMSprop(Optimizer):
     def __init__(
@@ -97,17 +178,23 @@ class RMSprop(Optimizer):
         self.initial_accumulator_value = initial_accumulator_value
         self.decay_rate = decay_rate
 
-    def init(self, layers: List[List[Neuron]]) -> None:
-        """Initializes neurons accumulators with zeros. Has to be invoked to use rmsprop."""
-        for layer in layers:
+    def init(self, model: "Perceptron") -> None:
+        super().init(model)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 neuron.accumulator = [self.initial_accumulator_value] * len(
                     neuron.weights
                 )
                 neuron.bias_accumulator = self.initial_accumulator_value
 
-    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
-        for layer in layers:
+    def __call__(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+        output = self.forward_pass(inputs)
+        self.backprop(targets)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 for weight_index, inp in enumerate(neuron.inputs):
                     gradient = neuron.error * inp
@@ -126,6 +213,8 @@ class RMSprop(Optimizer):
                 bias_scale = self.epsilon + neuron.bias_accumulator**0.5
                 neuron.bias += learning_rate * bias_gradient / bias_scale
 
+        return output
+
 
 class Adam(Optimizer):
     def __init__(
@@ -137,17 +226,23 @@ class Adam(Optimizer):
 
         self.step = 1
 
-    def init(self, layers: List[List[Neuron]]) -> None:
-        """Initializes neurons accumulators with zeros. Has to be invoked to use rmsprop."""
-        for layer in layers:
+    def init(self, model: "Perceptron") -> None:
+        super().init(model)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 neuron.first_moment_accumulator = [0.0] * len(neuron.weights)
                 neuron.second_moment_accumulator = [0.0] * len(neuron.weights)
                 neuron.first_moment_bias_accumulator = 0.0
                 neuron.second_moment_bias_accumulator = 0.0
 
-    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
-        for layer in layers:
+    def __call__(
+        self, inputs: List[float], targets: List[float], learning_rate: float
+    ) -> None:
+        output = self.forward_pass(inputs)
+        self.backprop(targets)
+
+        for layer in self.model.layers:
             for neuron in layer:
                 for weight_index, inp in enumerate(neuron.inputs):
                     gradient = neuron.error * inp
@@ -191,3 +286,5 @@ class Adam(Optimizer):
                 )
 
         self.step += 1
+
+        return output
