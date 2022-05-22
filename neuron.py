@@ -10,8 +10,8 @@ class Neuron:
         "error",
         "velocities",
         "bias_velocity",
-        "scale",
-        "bias_scale",
+        "accumulator",
+        "bias_accumulator",
     ]
 
     def __init__(self, weights: List[float], bias: float):
@@ -23,3 +23,5 @@ class Neuron:
         self.error: float = None
         self.velocities: List[float] = None
         self.bias_velocity: float = None
+        self.accumulator: float = None
+        self.bias_accumulator: float = None
