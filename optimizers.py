@@ -128,4 +128,66 @@ class RMSprop(Optimizer):
 
 
 class Adam(Optimizer):
-    pass
+    def __init__(
+        self, epsilon: float = 1e-8, beta_1: float = 0.9, beta_2: float = 0.999
+    ):
+        self.epsilon = epsilon
+        self.beta_1 = beta_1
+        self.beta_2 = beta_2
+
+        self.step = 1
+
+    def init(self, layers: List[List[Neuron]]) -> None:
+        """Initializes neurons accumulators with zeros. Has to be invoked to use rmsprop."""
+        for layer in layers:
+            for neuron in layer:
+                neuron.first_moment_accumulator = [0.0] * len(neuron.weights)
+                neuron.second_moment_accumulator = [0.0] * len(neuron.weights)
+                neuron.first_moment_bias_accumulator = 0.0
+                neuron.second_moment_bias_accumulator = 0.0
+
+    def __call__(self, layers: List[List[Neuron]], learning_rate: float) -> None:
+        for layer in layers:
+            for neuron in layer:
+                for weight_index, inp in enumerate(neuron.inputs):
+                    gradient = neuron.error * inp
+
+                    neuron.first_moment_accumulator[weight_index] *= self.beta_1
+                    neuron.first_moment_accumulator[weight_index] += (
+                        1 - self.beta_1
+                    ) * gradient
+
+                    neuron.second_moment_accumulator[weight_index] *= self.beta_2
+                    neuron.second_moment_accumulator[weight_index] += (
+                        1 - self.beta_2
+                    ) * gradient**2
+
+                    f_corrected = neuron.first_moment_accumulator[weight_index] / (
+                        1 - self.beta_1**self.step
+                    )
+                    s_corrected = neuron.second_moment_accumulator[weight_index] / (
+                        1 - self.beta_2**self.step
+                    )
+
+                    neuron.weights[weight_index] += (
+                        learning_rate
+                        * f_corrected
+                        / (self.epsilon + s_corrected**0.5)
+                    )
+
+                bias_gradient = neuron.error
+                neuron.first_moment_bias_accumulator *= self.beta_1
+                neuron.first_moment_bias_accumulator += (
+                    1 - self.beta_1
+                ) * bias_gradient
+
+                neuron.second_moment_bias_accumulator *= self.beta_2
+                neuron.second_moment_bias_accumulator += (
+                    1 - self.beta_2
+                ) * bias_gradient**2
+
+                neuron.bias += (
+                    learning_rate * f_corrected / (self.epsilon + s_corrected**0.5)
+                )
+
+        self.step += 1
