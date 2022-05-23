@@ -1,3 +1,4 @@
+import random
 from typing import List
 
 
@@ -35,3 +36,27 @@ class Neuron:
         self.second_moment_accumulator: float = None
         self.first_moment_bias_accumulator: float = None
         self.second_moment_bias_accumulator: float = None
+
+
+class WeightInitialization:
+    @staticmethod
+    def uniform(inputs: int) -> List[float]:
+        return [random.uniform(-1, 1) for _ in range(inputs)]
+
+    @staticmethod
+    def gauss(inputs: int) -> List[float]:
+        return [random.gauss(0, 1) for _ in range(inputs)]
+
+    @staticmethod
+    def zeros(inputs: int) -> List[float]:
+        return [0.0] * inputs
+
+    @staticmethod
+    def he(inputs: int) -> List[float]:
+        scale = (2 / inputs) ** 0.5
+        return [random.gauss(0, 1) * scale for _ in range(inputs)]
+
+    @staticmethod
+    def xavier(inputs: int) -> List[float]:
+        scale = (1 / inputs) ** 0.5
+        return [random.gauss(0, 1) * scale for _ in range(inputs)]

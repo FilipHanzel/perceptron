@@ -9,7 +9,7 @@ data_scanner_path = os.path.join(script_path, "..")
 sys.path.append(data_scanner_path)
 
 from perceptron import Perceptron, cross_validation
-from data_utils import transpose, to_categorical, to_binary
+from perceptron.data_utils import transpose, to_categorical, to_binary
 
 if __name__ == "__main__":
     with open(os.path.join(script_path, "data", "sonar.csv"), "rt") as f:
