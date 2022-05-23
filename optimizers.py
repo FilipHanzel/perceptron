@@ -48,8 +48,7 @@ class Optimizer(ABC):
         *hidden_layers, output_layer = layers
 
         for neuron, target in zip(output_layer, targets):
-            neuron.error = target - neuron.output
-            neuron.error *= derivatives[-1](neuron.output)
+            neuron.error = (target - neuron.output) * derivatives[-1](neuron.output)
 
         for layer_index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(layers[layer_index]):
@@ -83,8 +82,10 @@ class SGD(Optimizer):
 
         for layer in self.model.layers:
             for neuron in layer:
-                for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.weights[weight_index] += learning_rate * neuron.error * inp
+                neuron.weights = [
+                    weight + learning_rate * neuron.error * inp
+                    for weight, inp in zip(neuron.weights, neuron.inputs)
+                ]
                 neuron.bias += learning_rate * neuron.error
 
         return output
@@ -113,9 +114,9 @@ class Momentum(Optimizer):
                 lre = learning_rate * neuron.error
 
                 for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.velocities[weight_index] = (
-                        neuron.velocities[weight_index] * self.gamma + lre * inp
-                    )
+                    neuron.velocities[weight_index] *= self.gamma
+                    neuron.velocities[weight_index] += lre * inp
+
                     neuron.weights[weight_index] += neuron.velocities[weight_index]
 
                 neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
@@ -160,9 +161,9 @@ class Nesterov(Optimizer):
                 lre = learning_rate * neuron.error
 
                 for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.velocities[weight_index] = (
-                        neuron.velocities[weight_index] * self.gamma + lre * inp
-                    )
+                    neuron.velocities[weight_index] *= self.gamma
+                    neuron.velocities[weight_index] += lre * inp
+
                     neuron.weights[weight_index] += neuron.velocities[weight_index]
 
                 neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
@@ -174,17 +175,15 @@ class Nesterov(Optimizer):
 class Adagrad(Optimizer):
     def __init__(self, epsilon: float = 1e-8, initial_accumulator_value: float = 0.1):
         self.epsilon = epsilon
-        self.initial_accumulator_value = 0.1
+        self.init_acc = initial_accumulator_value
 
     def init(self, model: "Perceptron") -> None:
         super().init(model)
 
         for layer in self.model.layers:
             for neuron in layer:
-                neuron.accumulator = [self.initial_accumulator_value] * len(
-                    neuron.weights
-                )
-                neuron.bias_accumulator = self.initial_accumulator_value
+                neuron.accumulator = [self.init_acc] * len(neuron.weights)
+                neuron.bias_accumulator = self.init_acc
 
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
@@ -218,7 +217,7 @@ class RMSprop(Optimizer):
         decay_rate: float = 0.9,
     ):
         self.epsilon = epsilon
-        self.initial_accumulator_value = initial_accumulator_value
+        self.init_acc = initial_accumulator_value
         self.decay_rate = decay_rate
 
     def init(self, model: "Perceptron") -> None:
@@ -226,10 +225,8 @@ class RMSprop(Optimizer):
 
         for layer in self.model.layers:
             for neuron in layer:
-                neuron.accumulator = [self.initial_accumulator_value] * len(
-                    neuron.weights
-                )
-                neuron.bias_accumulator = self.initial_accumulator_value
+                neuron.accumulator = [self.init_acc] * len(neuron.weights)
+                neuron.bias_accumulator = self.init_acc
 
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
@@ -323,6 +320,13 @@ class Adam(Optimizer):
                 neuron.second_moment_bias_accumulator += (
                     1 - self.beta_2
                 ) * bias_gradient**2
+
+                f_corrected = neuron.first_moment_bias_accumulator / (
+                    1 - self.beta_1**self.step
+                )
+                s_corrected = neuron.second_moment_bias_accumulator / (
+                    1 - self.beta_2**self.step
+                )
 
                 neuron.bias += (
                     learning_rate * f_corrected / (self.epsilon + s_corrected**0.5)
