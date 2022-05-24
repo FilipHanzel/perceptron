@@ -123,3 +123,103 @@ if __name__ == "__main__":
 
     for feature, target in zip(normalized_features[:5], targets[:5]):
         print(f"{target=}, prediction={model.predict(feature)}")
+
+    print(
+        "Solving with MLP using builtin zscore normalization, momentum and polynomial decay..."
+    )
+    random.seed(0)
+
+    model = Perceptron(
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
+        normalization="zscore",
+        optimizer="momentum",
+    )
+    model.train(
+        training_inputs=normalized_features,
+        training_targets=targets,
+        epochs=100,
+        base_learning_rate=0.0001,
+        metrics=["sse", "mae"],
+        learning_rate_decay="polynomial",
+    )
+
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
+
+    print(
+        "Solving with MLP using builtin zscore normalization, momentum and timebased decay..."
+    )
+    random.seed(0)
+
+    model = Perceptron(
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
+        normalization="zscore",
+        optimizer="momentum",
+    )
+    model.train(
+        training_inputs=normalized_features,
+        training_targets=targets,
+        epochs=100,
+        base_learning_rate=0.0001,
+        metrics=["sse", "mae"],
+        learning_rate_decay="timebased",
+    )
+
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
+
+    print(
+        "Solving with MLP using builtin zscore normalization, momentum and exponential decay..."
+    )
+    random.seed(0)
+
+    model = Perceptron(
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
+        normalization="zscore",
+        optimizer="momentum",
+    )
+    model.train(
+        training_inputs=normalized_features,
+        training_targets=targets,
+        epochs=100,
+        base_learning_rate=0.0001,
+        metrics=["sse", "mae"],
+        learning_rate_decay="timebased",
+    )
+
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
+
+    print(
+        "Solving with MLP using builtin zscore normalization, momentum and step decay..."
+    )
+    random.seed(0)
+
+    model = Perceptron(
+        inputs=7,
+        layer_sizes=[10, 5, 5, 1],
+        activations=["leaky_relu"] * 3 + ["linear"],
+        init_method="he",
+        normalization="zscore",
+        optimizer="momentum",
+    )
+    model.train(
+        training_inputs=normalized_features,
+        training_targets=targets,
+        epochs=100,
+        base_learning_rate=0.0001,
+        metrics=["sse", "mae"],
+        learning_rate_decay="step",
+    )
+
+    for feature, target in zip(normalized_features[:5], targets[:5]):
+        print(f"{target=}, prediction={model.predict(feature)}")
