@@ -9,7 +9,7 @@ from perceptron.neuron import WeightInitialization
 from perceptron import data_utils
 from perceptron import normalizers
 from perceptron import optimizers
-from perceptron.decay import linear_decay
+import perceptron.decay
 import perceptron.activations
 import perceptron.metrics
 
@@ -157,7 +157,34 @@ class Perceptron:
         assert learning_rate_decay in [
             None,
             "linear",
+            "polynomial",
+            "timebased",
+            "exponential",
+            "step",
         ], "Unsupported learning rate decay"
+
+        if learning_rate_decay == "linear":
+            decay = perceptron.decay.LinearDecay(
+                base_learning_rate=base_learning_rate, epochs=epochs
+            )
+        elif learning_rate_decay == "polynomial":
+            decay = perceptron.decay.PolynomialDecay(
+                base_learning_rate=base_learning_rate, epochs=epochs, power=2
+            )
+        elif learning_rate_decay == "timebased":
+            decay = perceptron.decay.TimeBasedDecay(
+                base_learning_rate=base_learning_rate, epochs=epochs
+            )
+        elif learning_rate_decay == "exponential":
+            decay = perceptron.decay.ExpDecay(
+                base_learning_rate=base_learning_rate, decay_rate=0.1
+            )
+        elif learning_rate_decay == "step":
+            decay = perceptron.decay.StepDecay(
+                base_learning_rate=base_learning_rate, drop=0.5, interval=epochs // 10
+            )
+        else:
+            decay = lambda x: x
 
         for metric in metrics:
             assert hasattr(perceptron.metrics, metric), "Unsupported metric"
@@ -183,8 +210,7 @@ class Perceptron:
                 training_inputs, training_targets
             )
 
-            if learning_rate_decay == "linear":
-                learning_rate = linear_decay(base_learning_rate, epoch, epochs)
+            learning_rate = decay(epoch)
 
             for inputs, target in zip(training_inputs, training_targets):
                 prediction = self.update(inputs, target, learning_rate)
