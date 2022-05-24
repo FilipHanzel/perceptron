@@ -7,7 +7,7 @@ data_scanner_path = os.path.join(script_path, "..")
 sys.path.append(data_scanner_path)
 
 from perceptron import Perceptron
-from data_utils import normalize
+from perceptron.data_utils import normalize
 
 
 if __name__ == "__main__":

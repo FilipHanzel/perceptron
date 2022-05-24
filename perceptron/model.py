@@ -1,138 +1,17 @@
 import random
-from math import exp, ceil
-from typing import List, Tuple, Union, Type, Dict
+from math import ceil
+from typing import List, Tuple, Union, Dict
 
 from tqdm import tqdm
 
-from neuron import Neuron
-import data_utils
-import normalizers
-import optimizers
-
-
-class Activation:
-    @staticmethod
-    def heavyside(x):
-        return 1 if x >= 0 else 0
-
-    @staticmethod
-    def linear(x):
-        return x
-
-    @staticmethod
-    def relu(x):
-        return max(0, x)
-
-    @staticmethod
-    def leaky_relu(x):
-        return 0.3 * x if x < 0 else x
-
-    @staticmethod
-    def sigmoid(x):
-        return 1.0 / (1.0 + exp(-x))
-
-
-class Derivative:
-    @staticmethod
-    def linear(x):
-        return 1.0
-
-    @staticmethod
-    def relu(x):
-        return 0.0 if x < 0.0 else 1.0
-
-    @staticmethod
-    def leaky_relu(x):
-        return 0.3 if x < 0.0 else 1.0
-
-    @staticmethod
-    def sigmoid(x):
-        return x * (1.0 - x)
-
-
-class WeightInit:
-    @staticmethod
-    def uniform(inputs: int) -> List[float]:
-        return [random.uniform(-1, 1) for _ in range(inputs)]
-
-    @staticmethod
-    def gauss(inputs: int) -> List[float]:
-        return [random.gauss(0, 1) for _ in range(inputs)]
-
-    @staticmethod
-    def zeros(inputs: int) -> List[float]:
-        return [0.0] * inputs
-
-    @staticmethod
-    def he(inputs: int) -> List[float]:
-        scale = (2 / inputs) ** 0.5
-        return [random.gauss(0, 1) * scale for _ in range(inputs)]
-
-    @staticmethod
-    def xavier(inputs: int) -> List[float]:
-        scale = (1 / inputs) ** 0.5
-        return [random.gauss(0, 1) * scale for _ in range(inputs)]
-
-
-def linear_decay(base_rate: float, current_epoch: int, total_epochs: int) -> float:
-    return base_rate * (1.0 - (current_epoch / total_epochs))
-
-
-class Metric:
-    @staticmethod
-    def binary_accuracy(predictions: List[List], targets: List[List]) -> float:
-        threshold = 0.5
-
-        correct = 0
-        total = 0
-
-        for predictions_row, target_row in zip(predictions, targets):
-            total += len(predictions_row)
-            for prediction, target in zip(predictions_row, target_row):
-                prediction = 1 if prediction > threshold else 0
-                correct += prediction == target
-
-        return correct / total
-
-    @staticmethod
-    def categorical_accuracy(predictions: List[List], targets: List[List]) -> float:
-        correct = 0
-
-        for prediction_row, target_row in zip(predictions, targets):
-            prediction = prediction_row.index(max(prediction_row))
-            target = target_row.index(max(target_row))
-
-            correct += prediction == target
-
-        return correct / len(predictions)
-
-    @staticmethod
-    def sse(predictions: List[List], targets: List[List]) -> float:
-        sse = 0.0
-
-        for prediction_list, target_list in zip(predictions, targets):
-            sse += sum(
-                [
-                    (prediction - target) ** 2
-                    for prediction, target in zip(prediction_list, target_list)
-                ]
-            )
-
-        return sse
-
-    @staticmethod
-    def mae(predictions: List[List], targets: List[List]) -> float:
-        mae = 0.0
-
-        for prediction_list, target_list in zip(predictions, targets):
-            mae += sum(
-                [
-                    abs(prediction - target)
-                    for prediction, target in zip(prediction_list, target_list)
-                ]
-            ) / len(prediction_list)
-
-        return mae / len(predictions)
+from perceptron.neuron import Neuron
+from perceptron.neuron import WeightInitialization
+from perceptron import data_utils
+from perceptron import normalizers
+from perceptron import optimizers
+import perceptron.decay
+import perceptron.activations
+import perceptron.metrics
 
 
 class Perceptron:
@@ -171,14 +50,15 @@ class Perceptron:
         ), "Amount of activations must match layers"
 
         self.activations = [
-            getattr(Activation, activation) for activation in activations
+            getattr(perceptron.activations, activation) for activation in activations
         ]
         if activation == "heavyside":
             assert len(layer_sizes) == 1, "Heavyside activation is invalid for MLP"
             self.derivatives = [lambda _: 1]
         else:
             self.derivatives = [
-                getattr(Derivative, activation) for activation in activations
+                getattr(perceptron.activations, "d_" + activation)
+                for activation in activations
             ]
 
         # Initialize layers weights
@@ -192,7 +72,7 @@ class Perceptron:
 
         input_sizes = [inputs, *layer_sizes]
 
-        init_method = getattr(WeightInit, init_method)
+        init_method = getattr(WeightInitialization, init_method)
         self.layers = [
             [
                 Neuron(weights=init_method(input_size), bias=0.0)
@@ -277,10 +157,37 @@ class Perceptron:
         assert learning_rate_decay in [
             None,
             "linear",
+            "polynomial",
+            "timebased",
+            "exponential",
+            "step",
         ], "Unsupported learning rate decay"
 
+        if learning_rate_decay == "linear":
+            decay = perceptron.decay.LinearDecay(
+                base_learning_rate=base_learning_rate, epochs=epochs
+            )
+        elif learning_rate_decay == "polynomial":
+            decay = perceptron.decay.PolynomialDecay(
+                base_learning_rate=base_learning_rate, epochs=epochs, power=2
+            )
+        elif learning_rate_decay == "timebased":
+            decay = perceptron.decay.TimeBasedDecay(
+                base_learning_rate=base_learning_rate, epochs=epochs
+            )
+        elif learning_rate_decay == "exponential":
+            decay = perceptron.decay.ExpDecay(
+                base_learning_rate=base_learning_rate, decay_rate=0.1
+            )
+        elif learning_rate_decay == "step":
+            decay = perceptron.decay.StepDecay(
+                base_learning_rate=base_learning_rate, drop=0.5, interval=epochs // 10
+            )
+        else:
+            decay = lambda x: x
+
         for metric in metrics:
-            assert hasattr(Metric, metric), "Unsupported metric"
+            assert hasattr(perceptron.metrics, metric), "Unsupported metric"
 
         if self.normalizer is not None:
             self.normalizer.adapt(training_inputs)
@@ -303,24 +210,25 @@ class Perceptron:
                 training_inputs, training_targets
             )
 
-            if learning_rate_decay == "linear":
-                learning_rate = linear_decay(base_learning_rate, epoch, epochs)
+            learning_rate = decay(epoch)
 
             for inputs, target in zip(training_inputs, training_targets):
                 prediction = self.update(inputs, target, learning_rate)
 
             predictions = [self.predict(inputs) for inputs in training_inputs]
             calculated_metrics = {
-                metric: getattr(Metric, metric)(predictions, training_targets)
+                metric: getattr(perceptron.metrics, metric)(
+                    predictions, training_targets
+                )
                 for metric in metrics
             }
 
             if validate:
                 predictions = [self.predict(inputs) for inputs in validation_inputs]
                 for metric in metrics:
-                    calculated_metrics["val_" + metric] = getattr(Metric, metric)(
-                        predictions, validation_targets
-                    )
+                    calculated_metrics["val_" + metric] = getattr(
+                        perceptron.metrics, metric
+                    )(predictions, validation_targets)
 
             progress.set_postfix(**calculated_metrics)
 
