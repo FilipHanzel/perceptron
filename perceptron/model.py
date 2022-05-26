@@ -52,7 +52,7 @@ class Perceptron:
         self.activations = [
             getattr(perceptron.activations, activation) for activation in activations
         ]
-        if activation == "heavyside":
+        if "heavyside" in activations:
             assert len(layer_sizes) == 1, "Heavyside activation is invalid for MLP"
             self.derivatives = [lambda _: 1]
         else:
@@ -139,7 +139,7 @@ class Perceptron:
         inputs: List[float],
         targets: List[float],
         learning_rate: float,
-    ) -> Tuple[List[float], float]:
+    ) -> List[float]:
 
         if self.normalizer is not None:
             inputs = self.normalizer(inputs)

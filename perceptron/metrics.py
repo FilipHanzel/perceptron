@@ -1,7 +1,9 @@
 from typing import List
 
 
-def binary_accuracy(predictions: List[List], targets: List[List]) -> float:
+def binary_accuracy(
+    predictions: List[List[float]], targets: List[List[float]]
+) -> float:
     threshold = 0.5
 
     correct = 0
@@ -16,7 +18,9 @@ def binary_accuracy(predictions: List[List], targets: List[List]) -> float:
     return correct / total
 
 
-def categorical_accuracy(predictions: List[List], targets: List[List]) -> float:
+def categorical_accuracy(
+    predictions: List[List[float]], targets: List[List[float]]
+) -> float:
     correct = 0
 
     for prediction_row, target_row in zip(predictions, targets):
@@ -28,7 +32,7 @@ def categorical_accuracy(predictions: List[List], targets: List[List]) -> float:
     return correct / len(predictions)
 
 
-def sse(predictions: List[List], targets: List[List]) -> float:
+def sse(predictions: List[List[float]], targets: List[List[float]]) -> float:
     sse = 0.0
 
     for prediction_list, target_list in zip(predictions, targets):
@@ -42,7 +46,7 @@ def sse(predictions: List[List], targets: List[List]) -> float:
     return sse
 
 
-def mae(predictions: List[List], targets: List[List]) -> float:
+def mae(predictions: List[List[float]], targets: List[List[float]]) -> float:
     mae = 0.0
 
     for prediction_list, target_list in zip(predictions, targets):

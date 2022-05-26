@@ -27,7 +27,7 @@ class MinMax:
 
         self.adapted = True
 
-    def __call__(self, record: List[float]) -> List[List[float]]:
+    def __call__(self, record: List[float]) -> List[float]:
         return [
             (value - min_) / (max_ - min_)
             for value, min_, max_ in zip(record, self.mins, self.maxs)
@@ -71,7 +71,7 @@ class ZScore:
 
         self.adapted = True
 
-    def __call__(self, record: List[float]) -> List[List[float]]:
+    def __call__(self, record: List[float]) -> List[float]:
         return [
             (value - mean) / std
             for value, mean, std in zip(record, self.means, self.stds)
