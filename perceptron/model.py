@@ -9,7 +9,7 @@ from perceptron.neuron import WeightInitialization
 from perceptron import data_utils
 from perceptron import normalizers
 from perceptron import optimizers
-import perceptron.decays
+from perceptron import decays
 import perceptron.activations
 import perceptron.metrics
 
@@ -166,37 +166,33 @@ class Perceptron:
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
     ) -> Dict:
-        assert learning_rate_decay in [
-            None,
-            "linear",
-            "polynomial",
-            "timebased",
-            "exponential",
-            "step",
-        ], "Unsupported learning rate decay"
 
-        if learning_rate_decay == "linear":
-            decay = perceptron.decays.LinearDecay(
+        if isinstance(learning_rate_decay, decays.Decay):
+            decay = learning_rate_decay
+        elif learning_rate_decay is None:
+            decay = lambda x: x
+        elif learning_rate_decay == "linear":
+            decay = decays.LinearDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs
             )
         elif learning_rate_decay == "polynomial":
-            decay = perceptron.decays.PolynomialDecay(
+            decay = decays.PolynomialDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs, power=2
             )
         elif learning_rate_decay == "timebased":
-            decay = perceptron.decays.TimeBasedDecay(
+            decay = decays.TimeBasedDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs
             )
         elif learning_rate_decay == "exponential":
-            decay = perceptron.decays.ExpDecay(
+            decay = decays.ExpDecay(
                 base_learning_rate=base_learning_rate, decay_rate=0.1
             )
         elif learning_rate_decay == "step":
-            decay = perceptron.decays.StepDecay(
+            decay = decays.StepDecay(
                 base_learning_rate=base_learning_rate, drop=0.5, interval=epochs // 10
             )
         else:
-            decay = lambda x: x
+            raise ValueError("Unsupported learning rate decay")
 
         for metric in metrics:
             assert hasattr(perceptron.metrics, metric), "Unsupported metric"
