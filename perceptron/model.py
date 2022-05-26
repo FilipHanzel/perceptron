@@ -30,7 +30,7 @@ class Perceptron:
         activations: Union[str, List[str]],
         init_method: str = "gauss",
         normalization: str = None,
-        optimizer: str = "SGD",
+        optimizer: Union[optimizers.Optimizer, str] = "SGD",
     ):
         # Initialize layers activations
         if isinstance(activations, str):
@@ -96,22 +96,25 @@ class Perceptron:
         else:
             raise ValueError("Unknown normalization method")
 
-        # Initialize model optimizer using default parameters
-        optimizer = optimizer.lower()
-        if optimizer == "sgd":
-            self.optimizer = optimizers.SGD()
-        elif optimizer == "momentum":
-            self.optimizer = optimizers.Momentum()
-        elif optimizer == "nesterov":
-            self.optimizer = optimizers.Nesterov()
-        elif optimizer == "adagrad":
-            self.optimizer = optimizers.Adagrad()
-        elif optimizer == "rmsprop":
-            self.optimizer = optimizers.RMSprop()
-        elif optimizer == "adam":
-            self.optimizer = optimizers.Adam()
+        # Initialize model optimizer
+        if isinstance(optimizer, optimizers.Optimizer):
+            self.optimizer = optimizer
         else:
-            raise ValueError("Unknown optimization method")
+            optimizer = optimizer.lower()
+            if optimizer == "sgd":
+                self.optimizer = optimizers.SGD()
+            elif optimizer == "momentum":
+                self.optimizer = optimizers.Momentum()
+            elif optimizer == "nesterov":
+                self.optimizer = optimizers.Nesterov()
+            elif optimizer == "adagrad":
+                self.optimizer = optimizers.Adagrad()
+            elif optimizer == "rmsprop":
+                self.optimizer = optimizers.RMSprop()
+            elif optimizer == "adam":
+                self.optimizer = optimizers.Adam()
+            else:
+                raise ValueError("Unknown optimization method")
 
         self.optimizer.init(self)
 
