@@ -258,23 +258,23 @@ def cross_validation(
     learning_rate_decay: str,
     model_params: Dict,
     metrics: List[str] = ["sse"],
-):
-    order = list(range(len(inputs)))
-    random.shuffle(order)
+) -> List[Dict]:
 
-    fold_size = ceil(len(inputs) / fold_count)
-    folds = [
-        order[index : index + fold_size] for index in range(0, len(inputs), fold_size)
-    ]
+    folds = data_utils.kfold_split(
+        inputs, targets, fold_count, stratified=True, random=True
+    )
 
     history = []
     for test_fold in folds:
-        test_inputs = [inputs[idx] for idx in test_fold]
-        test_targets = [targets[idx] for idx in test_fold]
+        test_inputs = test_fold["inputs"]
+        test_targets = test_fold["targets"]
 
-        train_folds = [fold for fold in folds if fold is not test_fold]
-        train_inputs = [inputs[idx] for fold in train_folds for idx in fold]
-        train_targets = [targets[idx] for fold in train_folds for idx in fold]
+        train_inputs = []
+        train_targets = []
+        for fold in folds:
+            if fold is not test_fold:
+                train_inputs += fold["inputs"]
+                train_targets += fold["targets"]
 
         model = Perceptron(**model_params)
         run = model.train(
