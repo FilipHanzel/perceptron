@@ -143,6 +143,18 @@ class Perceptron:
 
         return self.optimizer(inputs, targets, learning_rate)
 
+    def measure(
+        self, inputs: List[List[float]], targets: List[List[float]], metrics: List[str]
+    ) -> Dict[str, float]:
+        for metric in metrics:
+            assert hasattr(perceptron.metrics, metric), "Unsupported metric"
+
+        predictions = [self.predict(inp) for inp in inputs]
+        return {
+            metric: getattr(perceptron.metrics, metric)(predictions, targets)
+            for metric in metrics
+        }
+
     def train(
         self,
         training_inputs: List[List[float]],
@@ -153,7 +165,7 @@ class Perceptron:
         metrics: List[str] = ["sse"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
-    ) -> List:
+    ) -> Dict:
         assert learning_rate_decay in [
             None,
             "linear",
@@ -203,6 +215,12 @@ class Perceptron:
         training_inputs = training_inputs.copy()
         training_targets = training_targets.copy()
 
+        measured = self.measure(training_inputs, training_targets, metrics)
+        history = {metric: [measured[metric]] for metric in measured}
+        if validate:
+            measured = self.measure(validation_inputs, validation_targets, metrics)
+            history.update({"val_" + metric: [measured[metric]] for metric in measured})
+
         learning_rate = base_learning_rate
         for epoch in progress:
 
@@ -215,22 +233,20 @@ class Perceptron:
             for inputs, target in zip(training_inputs, training_targets):
                 prediction = self.update(inputs, target, learning_rate)
 
-            predictions = [self.predict(inputs) for inputs in training_inputs]
-            calculated_metrics = {
-                metric: getattr(perceptron.metrics, metric)(
-                    predictions, training_targets
-                )
-                for metric in metrics
-            }
+            measured = self.measure(training_inputs, training_targets, metrics)
 
             if validate:
-                predictions = [self.predict(inputs) for inputs in validation_inputs]
-                for metric in metrics:
-                    calculated_metrics["val_" + metric] = getattr(
-                        perceptron.metrics, metric
-                    )(predictions, validation_targets)
+                validated = self.measure(validation_inputs, validation_targets, metrics)
+                measured.update(
+                    {"val_" + metric: validated[metric] for metric in validated}
+                )
 
-            progress.set_postfix(**calculated_metrics)
+            progress.set_postfix(**measured)
+
+            for metric in measured:
+                history[metric].append(measured[metric])
+
+        return history
 
 
 def cross_validation(
@@ -251,6 +267,7 @@ def cross_validation(
         order[index : index + fold_size] for index in range(0, len(inputs), fold_size)
     ]
 
+    history = []
     for test_fold in folds:
         test_inputs = [inputs[idx] for idx in test_fold]
         test_targets = [targets[idx] for idx in test_fold]
@@ -260,7 +277,7 @@ def cross_validation(
         train_targets = [targets[idx] for fold in train_folds for idx in fold]
 
         model = Perceptron(**model_params)
-        model.train(
+        run = model.train(
             training_inputs=train_inputs,
             training_targets=train_targets,
             epochs=epoch,
@@ -270,3 +287,5 @@ def cross_validation(
             validation_inputs=test_inputs,
             validation_targets=test_targets,
         )
+        history.append(run)
+    return history
