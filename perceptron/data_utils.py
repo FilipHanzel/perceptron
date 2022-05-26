@@ -18,7 +18,7 @@ def shuffle(features: List, targets: List) -> Tuple[List, List]:
 
 def to_binary(column: List[str]) -> List[List[int]]:
     """Encode column values as 0 or 1."""
-    values = set(column)
+    values = sorted(set(column))
     assert len(values) == 2, "Too many values for binary encoding"
 
     mapping = {label: index for index, label in enumerate(values)}
@@ -29,7 +29,7 @@ def to_binary(column: List[str]) -> List[List[int]]:
 
 def to_categorical(column: List[str]) -> List[List[int]]:
     """Encode column values as binary vectors."""
-    values = set(column)
+    values = sorted(set(column))
 
     index_mapping = {label: index for index, label in enumerate(values)}
 
