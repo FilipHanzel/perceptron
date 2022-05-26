@@ -164,7 +164,7 @@ class Perceptron:
         training_targets: List[List[float]],
         epochs: int,
         base_learning_rate: float,
-        learning_rate_decay: Union[str, None] = "linear",
+        learning_rate_decay: Union[decays.Decay, str, None] = "linear",
         metrics: List[str] = ["sse"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
@@ -249,12 +249,12 @@ class Perceptron:
 
 
 def cross_validation(
-    inputs: List,
-    targets: List,
+    inputs: List[List[float]],
+    targets: List[List[float]],
     fold_count: int,
     epoch: int,
     base_learning_rate: float,
-    learning_rate_decay: str,
+    learning_rate_decay: Union[decays.Decay, str, None],
     model_params: Dict,
     metrics: List[str] = ["sse"],
 ) -> List[Dict]:
