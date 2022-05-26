@@ -1,5 +1,5 @@
 import random
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 
 def transpose(data: List[List]) -> List[List]:
@@ -16,50 +16,35 @@ def shuffle(features: List, targets: List) -> Tuple[List, List]:
     return features, targets
 
 
-def normalize(data: List[List[float]]) -> List[List[float]]:
-    columns = transpose(data)
-    total_min = []
-    total_max = []
-    for column in columns:
-        total_min.append(min(column))
-        total_max.append(max(column))
+def kfold_split(
+    inputs: List[List[float]],
+    targets: List[List[float]],
+    fold_count: int,
+    stratified: bool = True,
+    random: bool = True,
+) -> Dict:
 
-    normalized_dataset = [
-        [
-            (column - min_) / (max_ - min_)
-            for column, min_, max_ in zip(record, total_min, total_max)
-        ]
-        for record in data
-    ]
+    if random:
+        inputs, targets = shuffle(inputs, targets)
 
-    return normalized_dataset
+    if stratified:
+        records = sorted(zip(targets, inputs), key=lambda x: x[0])
+    else:
+        records = zip(targets, inputs)
 
+    folds = [dict(inputs=[], targets=[]) for _ in range(fold_count)]
 
-def drop_columns(data, column_index: Union[int, List[int]]):
-    """Drop columns of the data (inplace). Supports negative indexes."""
-    if isinstance(column_index, int):
-        column_index = [column_index]
+    for index, (target, inp) in enumerate(records):
+        fold_idx = index % fold_count
+        folds[fold_idx]["inputs"].append(inp)
+        folds[fold_idx]["targets"].append(target)
 
-    record_length = len(data[0])
-
-    # Support negative indexes
-    for index in column_index:
-        if not (-record_length <= index < record_length):
-            raise IndexError("index out of range")
-    column_index = [
-        index if index >= 0 else record_length + index for index in column_index
-    ]
-
-    for index in sorted(column_index, reverse=True):
-        for line in data:
-            del line[index]
-
-    return data
+    return folds
 
 
 def to_binary(column: List[str]) -> List[List[int]]:
     """Encode column values as 0 or 1."""
-    values = set(column)
+    values = sorted(set(column))
     assert len(values) == 2, "Too many values for binary encoding"
 
     mapping = {label: index for index, label in enumerate(values)}
@@ -70,7 +55,7 @@ def to_binary(column: List[str]) -> List[List[int]]:
 
 def to_categorical(column: List[str]) -> List[List[int]]:
     """Encode column values as binary vectors."""
-    values = set(column)
+    values = sorted(set(column))
 
     index_mapping = {label: index for index, label in enumerate(values)}
 

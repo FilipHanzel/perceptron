@@ -9,7 +9,7 @@ from perceptron.neuron import WeightInitialization
 from perceptron import data_utils
 from perceptron import normalizers
 from perceptron import optimizers
-import perceptron.decay
+from perceptron import decays
 import perceptron.activations
 import perceptron.metrics
 
@@ -30,7 +30,7 @@ class Perceptron:
         activations: Union[str, List[str]],
         init_method: str = "gauss",
         normalization: str = None,
-        optimizer: str = "SGD",
+        optimizer: Union[optimizers.Optimizer, str] = "SGD",
     ):
         # Initialize layers activations
         if isinstance(activations, str):
@@ -96,22 +96,25 @@ class Perceptron:
         else:
             raise ValueError("Unknown normalization method")
 
-        # Initialize model optimizer using default parameters
-        optimizer = optimizer.lower()
-        if optimizer == "sgd":
-            self.optimizer = optimizers.SGD()
-        elif optimizer == "momentum":
-            self.optimizer = optimizers.Momentum()
-        elif optimizer == "nesterov":
-            self.optimizer = optimizers.Nesterov()
-        elif optimizer == "adagrad":
-            self.optimizer = optimizers.Adagrad()
-        elif optimizer == "rmsprop":
-            self.optimizer = optimizers.RMSprop()
-        elif optimizer == "adam":
-            self.optimizer = optimizers.Adam()
+        # Initialize model optimizer
+        if isinstance(optimizer, optimizers.Optimizer):
+            self.optimizer = optimizer
         else:
-            raise ValueError("Unknown optimization method")
+            optimizer = optimizer.lower()
+            if optimizer == "sgd":
+                self.optimizer = optimizers.SGD()
+            elif optimizer == "momentum":
+                self.optimizer = optimizers.Momentum()
+            elif optimizer == "nesterov":
+                self.optimizer = optimizers.Nesterov()
+            elif optimizer == "adagrad":
+                self.optimizer = optimizers.Adagrad()
+            elif optimizer == "rmsprop":
+                self.optimizer = optimizers.RMSprop()
+            elif optimizer == "adam":
+                self.optimizer = optimizers.Adam()
+            else:
+                raise ValueError("Unknown optimization method")
 
         self.optimizer.init(self)
 
@@ -143,48 +146,56 @@ class Perceptron:
 
         return self.optimizer(inputs, targets, learning_rate)
 
+    def measure(
+        self, inputs: List[List[float]], targets: List[List[float]], metrics: List[str]
+    ) -> Dict[str, float]:
+        for metric in metrics:
+            assert hasattr(perceptron.metrics, metric), "Unsupported metric"
+
+        predictions = [self.predict(inp) for inp in inputs]
+        return {
+            metric: getattr(perceptron.metrics, metric)(predictions, targets)
+            for metric in metrics
+        }
+
     def train(
         self,
         training_inputs: List[List[float]],
         training_targets: List[List[float]],
         epochs: int,
         base_learning_rate: float,
-        learning_rate_decay: Union[str, None] = "linear",
+        learning_rate_decay: Union[decays.Decay, str, None] = "linear",
         metrics: List[str] = ["sse"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
-    ) -> List:
-        assert learning_rate_decay in [
-            None,
-            "linear",
-            "polynomial",
-            "timebased",
-            "exponential",
-            "step",
-        ], "Unsupported learning rate decay"
+    ) -> Dict:
 
-        if learning_rate_decay == "linear":
-            decay = perceptron.decay.LinearDecay(
+        if isinstance(learning_rate_decay, decays.Decay):
+            decay = learning_rate_decay
+        elif learning_rate_decay is None:
+            decay = lambda x: x
+        elif learning_rate_decay == "linear":
+            decay = decays.LinearDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs
             )
         elif learning_rate_decay == "polynomial":
-            decay = perceptron.decay.PolynomialDecay(
+            decay = decays.PolynomialDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs, power=2
             )
         elif learning_rate_decay == "timebased":
-            decay = perceptron.decay.TimeBasedDecay(
+            decay = decays.TimeBasedDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs
             )
         elif learning_rate_decay == "exponential":
-            decay = perceptron.decay.ExpDecay(
+            decay = decays.ExpDecay(
                 base_learning_rate=base_learning_rate, decay_rate=0.1
             )
         elif learning_rate_decay == "step":
-            decay = perceptron.decay.StepDecay(
+            decay = decays.StepDecay(
                 base_learning_rate=base_learning_rate, drop=0.5, interval=epochs // 10
             )
         else:
-            decay = lambda x: x
+            raise ValueError("Unsupported learning rate decay")
 
         for metric in metrics:
             assert hasattr(perceptron.metrics, metric), "Unsupported metric"
@@ -203,6 +214,12 @@ class Perceptron:
         training_inputs = training_inputs.copy()
         training_targets = training_targets.copy()
 
+        measured = self.measure(training_inputs, training_targets, metrics)
+        history = {metric: [measured[metric]] for metric in measured}
+        if validate:
+            measured = self.measure(validation_inputs, validation_targets, metrics)
+            history.update({"val_" + metric: [measured[metric]] for metric in measured})
+
         learning_rate = base_learning_rate
         for epoch in progress:
 
@@ -215,52 +232,51 @@ class Perceptron:
             for inputs, target in zip(training_inputs, training_targets):
                 prediction = self.update(inputs, target, learning_rate)
 
-            predictions = [self.predict(inputs) for inputs in training_inputs]
-            calculated_metrics = {
-                metric: getattr(perceptron.metrics, metric)(
-                    predictions, training_targets
-                )
-                for metric in metrics
-            }
+            measured = self.measure(training_inputs, training_targets, metrics)
 
             if validate:
-                predictions = [self.predict(inputs) for inputs in validation_inputs]
-                for metric in metrics:
-                    calculated_metrics["val_" + metric] = getattr(
-                        perceptron.metrics, metric
-                    )(predictions, validation_targets)
+                validated = self.measure(validation_inputs, validation_targets, metrics)
+                measured.update(
+                    {"val_" + metric: validated[metric] for metric in validated}
+                )
 
-            progress.set_postfix(**calculated_metrics)
+            progress.set_postfix(**measured)
+
+            for metric in measured:
+                history[metric].append(measured[metric])
+
+        return history
 
 
 def cross_validation(
-    inputs: List,
-    targets: List,
+    inputs: List[List[float]],
+    targets: List[List[float]],
     fold_count: int,
     epoch: int,
     base_learning_rate: float,
-    learning_rate_decay: str,
+    learning_rate_decay: Union[decays.Decay, str, None],
     model_params: Dict,
     metrics: List[str] = ["sse"],
-):
-    order = list(range(len(inputs)))
-    random.shuffle(order)
+) -> List[Dict]:
 
-    fold_size = ceil(len(inputs) / fold_count)
-    folds = [
-        order[index : index + fold_size] for index in range(0, len(inputs), fold_size)
-    ]
+    folds = data_utils.kfold_split(
+        inputs, targets, fold_count, stratified=True, random=True
+    )
 
+    history = []
     for test_fold in folds:
-        test_inputs = [inputs[idx] for idx in test_fold]
-        test_targets = [targets[idx] for idx in test_fold]
+        test_inputs = test_fold["inputs"]
+        test_targets = test_fold["targets"]
 
-        train_folds = [fold for fold in folds if fold is not test_fold]
-        train_inputs = [inputs[idx] for fold in train_folds for idx in fold]
-        train_targets = [targets[idx] for fold in train_folds for idx in fold]
+        train_inputs = []
+        train_targets = []
+        for fold in folds:
+            if fold is not test_fold:
+                train_inputs += fold["inputs"]
+                train_targets += fold["targets"]
 
         model = Perceptron(**model_params)
-        model.train(
+        run = model.train(
             training_inputs=train_inputs,
             training_targets=train_targets,
             epochs=epoch,
@@ -270,3 +286,5 @@ def cross_validation(
             validation_inputs=test_inputs,
             validation_targets=test_targets,
         )
+        history.append(run)
+    return history
