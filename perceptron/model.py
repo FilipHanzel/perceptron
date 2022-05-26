@@ -9,7 +9,7 @@ from perceptron.neuron import WeightInitialization
 from perceptron import data_utils
 from perceptron import normalizers
 from perceptron import optimizers
-import perceptron.decay
+import perceptron.decays
 import perceptron.activations
 import perceptron.metrics
 
@@ -176,23 +176,23 @@ class Perceptron:
         ], "Unsupported learning rate decay"
 
         if learning_rate_decay == "linear":
-            decay = perceptron.decay.LinearDecay(
+            decay = perceptron.decays.LinearDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs
             )
         elif learning_rate_decay == "polynomial":
-            decay = perceptron.decay.PolynomialDecay(
+            decay = perceptron.decays.PolynomialDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs, power=2
             )
         elif learning_rate_decay == "timebased":
-            decay = perceptron.decay.TimeBasedDecay(
+            decay = perceptron.decays.TimeBasedDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs
             )
         elif learning_rate_decay == "exponential":
-            decay = perceptron.decay.ExpDecay(
+            decay = perceptron.decays.ExpDecay(
                 base_learning_rate=base_learning_rate, decay_rate=0.1
             )
         elif learning_rate_decay == "step":
-            decay = perceptron.decay.StepDecay(
+            decay = perceptron.decays.StepDecay(
                 base_learning_rate=base_learning_rate, drop=0.5, interval=epochs // 10
             )
         else:
