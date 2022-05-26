@@ -1,5 +1,5 @@
 import random
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 
 def transpose(data: List[List]) -> List[List]:
@@ -14,6 +14,32 @@ def shuffle(features: List, targets: List) -> Tuple[List, List]:
     targets = [targets[index] for index in order]
 
     return features, targets
+
+
+def kfold_split(
+    inputs: List[List[float]],
+    targets: List[List[float]],
+    fold_count: int,
+    stratified: bool = True,
+    random: bool = True,
+) -> Dict:
+
+    if random:
+        inputs, targets = shuffle(inputs, targets)
+
+    if stratified:
+        records = sorted(zip(targets, inputs), key=lambda x: x[0])
+    else:
+        records = zip(targets, inputs)
+
+    folds = [dict(inputs=[], targets=[]) for _ in range(fold_count)]
+
+    for index, (target, inp) in enumerate(records):
+        fold_idx = index % fold_count
+        folds[fold_idx]["inputs"].append(inp)
+        folds[fold_idx]["targets"].append(target)
+
+    return folds
 
 
 def to_binary(column: List[str]) -> List[List[int]]:
