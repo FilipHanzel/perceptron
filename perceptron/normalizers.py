@@ -14,7 +14,9 @@ class MinMax:
         columns = data_utils.transpose(data)
 
         if not clean and self.adapted:
-            assert len(data[0]) == len(self.mins), "Invalid record length"
+            if len(data[0]) != len(self.mins):
+                raise ValueError("Invalid record length")
+
             for column, prev_min, prev_max in zip(columns, self.mins, self.maxs):
                 column.append(prev_min)
                 column.append(prev_max)
@@ -22,8 +24,14 @@ class MinMax:
         self.mins = []
         self.maxs = []
         for column in columns:
-            self.mins.append(min(column))
-            self.maxs.append(max(column))
+            min_ = min(column)
+            max_ = max(column)
+
+            if min_ == max_:
+                raise ValueError("Column has to contain more than one unique value")
+
+            self.mins.append(min_)
+            self.maxs.append(max_)
 
         self.adapted = True
 
