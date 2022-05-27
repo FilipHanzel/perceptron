@@ -49,7 +49,7 @@ class ZScore:
 
         self.adapted = False
 
-        self._sums: List[float] = None
+        self._s2_buffer: List[float] = None
         self._count: int = None
 
     def adapt(self, data: List[List[float]], clean: bool = True) -> None:
@@ -58,24 +58,48 @@ class ZScore:
         if not self.adapted or clean:
             self._count = len(data)
             self._sums = [sum(column) for column in columns]
+
+            self.means = [s / self._count for s in self._sums]
+            self.stds = []
+            self._s2_buffer = []
+            for column, mean in zip(columns, self.means):
+                std = 0
+                for value in column:
+                    std += (value - mean) ** 2
+
+                if std == 0:
+                    raise ValueError("Column has to contain more than one unique value")
+
+                self._s2_buffer.append(std)
+                std = (std / self._count) ** 0.5
+
+                self.stds.append(std)
         else:
-            assert len(data[0]) == len(self._sums), "Invalid record length"
+            if len(data[0]) != len(self.means):
+                raise ValueError("Invalid record length")
+
+            # Update with Welford's algorithm
+            old_means = self.means
+            old_s2_buffer = self._s2_buffer
+
+            self.means = []
+            self._s2_buffer = []
+
+            for column, old_mean, old_s2 in zip(columns, old_means, old_s2_buffer):
+                count = self._count
+                for value in column:
+                    count += 1
+                    new_mean = old_mean + (value - old_mean) / count
+                    new_s2 = old_s2 + (value - old_mean) * (value - new_mean)
+
+                    old_mean = new_mean
+                    old_s2 = new_s2
+                else:
+                    self.means.append(new_mean)
+                    self._s2_buffer.append(new_s2)
 
             self._count += len(data)
-            self._sums = [s + sum(column) for s, column in zip(self._sums, columns)]
-
-        self.means = []
-        self.stds = []
-
-        for s, column in zip(self._sums, columns):
-            mean = s / self._count
-            self.means.append(mean)
-
-            std = 0
-            for value in column:
-                std += (value - mean) ** 2
-            std = (std / self._count) ** 0.5
-            self.stds.append(std)
+            self.stds = [(s2 / self._count) ** 0.5 for s2 in self._s2_buffer]
 
         self.adapted = True
 
