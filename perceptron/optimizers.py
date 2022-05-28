@@ -13,7 +13,7 @@ class Optimizer(ABC):
 
         self.model = model
 
-    def forward_pass(self, inputs) -> None:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         """Pass inputs through the model.
 
         Each neuron has to store its inputs and output.
@@ -38,7 +38,7 @@ class Optimizer(ABC):
 
         return output
 
-    def backprop(self, targets) -> None:
+    def backprop(self, targets: List[float]) -> None:
         """Calculate error and propagate it backwards through the model.
 
         Each neuron has to store its error needed for weight update."""
@@ -62,21 +62,21 @@ class Optimizer(ABC):
 
     def update(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
         """Update weights. Synonym to __call__."""
         return self(inputs, targets, learning_rate)
 
     @abstractmethod
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
         """Update weights."""
 
 
 class SGD(Optimizer):
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
         output = self.forward_pass(inputs)
         self.backprop(targets)
 
@@ -105,7 +105,7 @@ class Momentum(Optimizer):
 
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
         output = self.forward_pass(inputs)
         self.backprop(targets)
 
@@ -139,7 +139,7 @@ class Nesterov(Optimizer):
 
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
 
         for layer in self.model.layers:
             for neuron in layer:
@@ -187,7 +187,7 @@ class Adagrad(Optimizer):
 
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
         output = self.forward_pass(inputs)
         self.backprop(targets)
 
@@ -230,7 +230,7 @@ class RMSprop(Optimizer):
 
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
         output = self.forward_pass(inputs)
         self.backprop(targets)
 
@@ -278,7 +278,7 @@ class Adam(Optimizer):
 
     def __call__(
         self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> None:
+    ) -> List[float]:
         output = self.forward_pass(inputs)
         self.backprop(targets)
 

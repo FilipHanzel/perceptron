@@ -6,14 +6,14 @@ def transpose(data: List[List]) -> List[List]:
     return [list(column) for column in zip(*data)]
 
 
-def shuffle(features: List, targets: List) -> Tuple[List, List]:
-    order = list(range(len(features)))
+def shuffle(inputs: List[List[float]], targets: List[List[float]]) -> Tuple[List, List]:
+    order = list(range(len(inputs)))
     random.shuffle(order)
 
-    features = [features[index] for index in order]
+    inputs = [inputs[index] for index in order]
     targets = [targets[index] for index in order]
 
-    return features, targets
+    return inputs, targets
 
 
 def kfold_split(
