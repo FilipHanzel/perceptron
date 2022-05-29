@@ -1,60 +1,180 @@
+import re
 from typing import List
+from abc import ABC, abstractmethod
 
 
-def binary_accuracy(
-    predictions: List[List[float]], targets: List[List[float]]
-) -> float:
-    threshold = 0.5
+class Metric:
+    """Class attribute name will be used while displaying metrics."""
 
-    correct = 0
-    total = 0
+    @property
+    def name(self):
+        if hasattr(self, "__name"):
+            return self.__name
+        name = self.__class__.__name__
+        name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
 
-    for predictions_row, target_row in zip(predictions, targets):
-        total += len(predictions_row)
-        for prediction, target in zip(predictions_row, target_row):
-            prediction = 1 if prediction > threshold else 0
+    @name.setter
+    def name(self, value):
+        self.__name = value
+
+    @abstractmethod
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        """Calculate metric."""
+
+
+# Regression metrics
+
+
+class MAE(Metric):
+    """Mean Absolute Error."""
+
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        ae = 0.0
+        count = 0
+
+        for prediction, target in zip(predictions, targets):
+            for predicted_value, target_value in zip(prediction, target):
+                ae += abs(predicted_value - target_value)
+            count += len(prediction)
+
+        return ae / count
+
+
+class MAPE(Metric):
+    """Mean Absolute Percentage Error"""
+
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        ape = 0.0
+        count = 0
+
+        for prediction, target in zip(predictions, targets):
+            for predicted_value, target_value in zip(prediction, target):
+                ape += abs((predicted_value - target_value) / target_value)
+            count += len(prediction)
+
+        return ape / count
+
+
+class MSE(Metric):
+    """Mean Square Error"""
+
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        se = 0.0
+        count = 0
+
+        for prediction, target in zip(predictions, targets):
+            for predicted_value, target_value in zip(prediction, target):
+                se += (predicted_value - target_value) ** 2
+            count += len(prediction)
+
+        return se / count
+
+
+class RMSE(MSE):
+    """Root Mean Square Error."""
+
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        return super().__call__(predictions, targets) ** 0.5
+
+
+class CosSim(Metric):
+    """Cosine Similarity."""
+
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        m_sum = 0.0
+        p_sum = 0.0
+        t_sum = 0.0
+
+        for prediction, target in zip(predictions, targets):
+            for predicted_value, target_value in zip(prediction, target):
+                m_sum += predicted_value * target_value
+                p_sum += predicted_value**2
+                t_sum += target_value**2
+
+        return m_sum / (p_sum**0.5 * t_sum**0.5)
+
+
+# Classification metrics
+
+
+class BinaryAccuracy(Metric):
+    """Binary accuracy (single output accuracy)."""
+
+    def __init__(self, threshold: float = 0.5):
+        self.threshold = threshold
+
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        correct = 0
+        total = 0
+
+        for predictions_row, target_row in zip(predictions, targets):
+            total += len(predictions_row)
+
+            for prediction, target in zip(predictions_row, target_row):
+                prediction = 1 if prediction > self.threshold else 0
+                target = 1 if target > self.threshold else 0
+
+                correct += prediction == target
+
+        return correct / total
+
+
+class CategoricalAccuracy(Metric):
+    """Categorical accuracy"""
+
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        correct = 0
+
+        for prediction_row, target_row in zip(predictions, targets):
+            prediction = prediction_row.index(max(prediction_row))
+            target = target_row.index(max(target_row))
+
             correct += prediction == target
 
-    return correct / total
+        return correct / len(predictions)
 
 
-def categorical_accuracy(
-    predictions: List[List[float]], targets: List[List[float]]
-) -> float:
-    correct = 0
+class TopKCategoricalAccuracy(Metric):
+    """Top K Categorical accuracy.
 
-    for prediction_row, target_row in zip(predictions, targets):
-        prediction = prediction_row.index(max(prediction_row))
-        target = target_row.index(max(target_row))
+    Check if target is amongst top k predictions."""
 
-        correct += prediction == target
+    def __init__(self, k: int = 3):
+        assert isinstance(k, int), "Parameter k has to be of type int"
+        self.name = f"top_{k}_cat_acc"
+        self.k = k
 
-    return correct / len(predictions)
+    def __call__(
+        self, predictions: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        correct = 0
 
-
-def sse(predictions: List[List[float]], targets: List[List[float]]) -> float:
-    sse = 0.0
-
-    for prediction_list, target_list in zip(predictions, targets):
-        sse += sum(
-            [
-                (prediction - target) ** 2
-                for prediction, target in zip(prediction_list, target_list)
+        for prediction_row, target_row in zip(predictions, targets):
+            top_k_predictions = [
+                index
+                for index, _ in sorted(
+                    enumerate(prediction_row), key=lambda x: x[1], reverse=True
+                )[: self.k]
             ]
-        )
+            target = target_row.index(max(target_row))
 
-    return sse
+            correct += target in predictions
 
-
-def mae(predictions: List[List[float]], targets: List[List[float]]) -> float:
-    mae = 0.0
-
-    for prediction_list, target_list in zip(predictions, targets):
-        mae += sum(
-            [
-                abs(prediction - target)
-                for prediction, target in zip(prediction_list, target_list)
-            ]
-        ) / len(prediction_list)
-
-    return mae / len(predictions)
+        return correct / len(predictions)
