@@ -149,14 +149,13 @@ class Perceptron:
     def measure(
         self, inputs: List[List[float]], targets: List[List[float]], metrics: List[str]
     ) -> Dict[str, float]:
-        for metric in metrics:
-            assert hasattr(perceptron.metrics, metric), "Unsupported metric"
+        for metric in metrics.values():
+            assert isinstance(
+                metric, perceptron.metrics.Metric
+            ), f"Unsupported metric {metric}"
 
         predictions = [self.predict(inp) for inp in inputs]
-        return {
-            metric: getattr(perceptron.metrics, metric)(predictions, targets)
-            for metric in metrics
-        }
+        return {name: metric(predictions, targets) for name, metric in metrics.items()}
 
     def train(
         self,
@@ -197,8 +196,35 @@ class Perceptron:
         else:
             raise ValueError("Unsupported learning rate decay")
 
+        loaded_metrics = {}
         for metric in metrics:
-            assert hasattr(perceptron.metrics, metric), "Unsupported metric"
+            if isinstance(metric, perceptron.metrics.Metric):
+                loaded_metrics[metric.name, metric]
+            else:
+                metric = metric.lower()
+
+                if metric == "mae":
+                    metric = perceptron.metrics.MAE()
+                elif metric == "mape":
+                    metric = perceptron.metrics.MAPE()
+                elif metric == "mse":
+                    metric = perceptron.metrics.MSE()
+                elif metric == "rmse":
+                    metric = perceptron.metrics.RMSE()
+                elif metric == ("cos_sim", "cos_similarity"):
+                    metric = perceptron.metrics.CosSim()
+                elif metric in ("bin_acc", "binary_accuracy"):
+                    metric = perceptron.metrics.BinaryAccuracy()
+                elif metric in ("cat_acc", "categorical_accuracy"):
+                    metric = perceptron.metrics.CategoricalAccuracy()
+                elif metric in ("top_k_cat_acc", "top_k_categorical_accuracy"):
+                    metric = perceptron.metrics.TopKCategoricalAccuracy()
+                else:
+                    raise ValueError(f"Unsupported metric {metric}")
+
+                loaded_metrics[metric.name] = metric
+
+        metrics = loaded_metrics
 
         if self.normalizer is not None:
             self.normalizer.adapt(training_inputs)
