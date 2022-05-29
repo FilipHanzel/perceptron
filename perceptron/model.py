@@ -173,7 +173,7 @@ class Perceptron:
         if isinstance(learning_rate_decay, decays.Decay):
             decay = learning_rate_decay
         elif learning_rate_decay is None:
-            decay = lambda x: x
+            decay = lambda _: base_learning_rate
         elif learning_rate_decay == "linear":
             decay = decays.LinearDecay(
                 base_learning_rate=base_learning_rate, epochs=epochs
