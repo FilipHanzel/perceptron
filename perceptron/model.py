@@ -12,6 +12,7 @@ from perceptron import optimizers
 from perceptron import decays
 import perceptron.activations
 import perceptron.metrics
+import perceptron.loss
 
 
 class Perceptron:
@@ -21,6 +22,7 @@ class Perceptron:
         "layers",
         "normalizer",
         "optimizer",
+        "loss_function",
     ]
 
     def __init__(
@@ -31,6 +33,7 @@ class Perceptron:
         init_method: str = "gauss",
         normalization: str = None,
         optimizer: Union[optimizers.Optimizer, str] = "SGD",
+        loss_function: Union[perceptron.loss.Loss, str] = "MSE",
     ):
         # Initialize layers activations
         if isinstance(activations, str):
@@ -117,6 +120,15 @@ class Perceptron:
                 raise ValueError("Unknown optimization method")
 
         self.optimizer.init(self)
+
+        if isinstance(loss_function, perceptron.loss.Loss):
+            self.loss_function = loss_function
+        else:
+            loss_function = loss_function.lower()
+            if loss_function == "mse":
+                self.loss_function = perceptron.loss.MSE()
+            else:
+                raise ValueError("Unknown loss function")
 
     def predict(self, inputs: List[float]) -> List[float]:
 
