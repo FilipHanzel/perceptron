@@ -47,8 +47,11 @@ class Optimizer(ABC):
         layers = self.model.layers
         *hidden_layers, output_layer = layers
 
-        for neuron, target in zip(output_layer, targets):
-            neuron.error = (target - neuron.output) * derivatives[-1](neuron.output)
+        predictions = [neuron.output for neuron in output_layer]
+        loss_derivatives = self.model.loss_function.partial_derivatives(predictions, targets)
+
+        for neuron, loss in zip(output_layer, loss_derivatives):
+            neuron.error = loss * derivatives[-1](neuron.output)
 
         for layer_index in reversed(range(len(hidden_layers))):
             for neuron_index, neuron in enumerate(layers[layer_index]):
@@ -83,10 +86,10 @@ class SGD(Optimizer):
         for layer in self.model.layers:
             for neuron in layer:
                 neuron.weights = [
-                    weight + learning_rate * neuron.error * inp
+                    weight - learning_rate * neuron.error * inp
                     for weight, inp in zip(neuron.weights, neuron.inputs)
                 ]
-                neuron.bias += learning_rate * neuron.error
+                neuron.bias -= learning_rate * neuron.error
 
         return output
 
@@ -117,10 +120,10 @@ class Momentum(Optimizer):
                     neuron.velocities[weight_index] *= self.gamma
                     neuron.velocities[weight_index] += lre * inp
 
-                    neuron.weights[weight_index] += neuron.velocities[weight_index]
+                    neuron.weights[weight_index] -= neuron.velocities[weight_index]
 
                 neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
-                neuron.bias += neuron.bias_velocity
+                neuron.bias -= neuron.bias_velocity
 
         return output
 
@@ -145,7 +148,7 @@ class Nesterov(Optimizer):
             for neuron in layer:
                 neuron.weights_cache = neuron.weights
                 neuron.weights = [
-                    weight + self.gamma * velocity
+                    weight - self.gamma * velocity
                     for weight, velocity in zip(neuron.weights, neuron.velocities)
                 ]
 
@@ -164,10 +167,10 @@ class Nesterov(Optimizer):
                     neuron.velocities[weight_index] *= self.gamma
                     neuron.velocities[weight_index] += lre * inp
 
-                    neuron.weights[weight_index] += neuron.velocities[weight_index]
+                    neuron.weights[weight_index] -= neuron.velocities[weight_index]
 
                 neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
-                neuron.bias += neuron.bias_velocity
+                neuron.bias -= neuron.bias_velocity
 
         return output
 
@@ -198,13 +201,13 @@ class Adagrad(Optimizer):
                     neuron.accumulator[weight_index] += gradient**2
 
                     scale = self.epsilon + neuron.accumulator[weight_index] ** 0.5
-                    neuron.weights[weight_index] += learning_rate * gradient / scale
+                    neuron.weights[weight_index] -= learning_rate * gradient / scale
 
                 bias_gradient = neuron.error
                 neuron.bias_accumulator += bias_gradient**2
 
                 bias_scale = self.epsilon + neuron.bias_accumulator**0.5
-                neuron.bias += learning_rate * bias_gradient / bias_scale
+                neuron.bias -= learning_rate * bias_gradient / bias_scale
 
         return output
 
@@ -244,14 +247,14 @@ class RMSprop(Optimizer):
                     ) * gradient**2
 
                     scale = self.epsilon + neuron.accumulator[weight_index] ** 0.5
-                    neuron.weights[weight_index] += learning_rate * gradient / scale
+                    neuron.weights[weight_index] -= learning_rate * gradient / scale
 
                 bias_gradient = neuron.error
                 neuron.bias_accumulator *= self.decay_rate
                 neuron.bias_accumulator += (1 - self.decay_rate) * bias_gradient**2
 
                 bias_scale = self.epsilon + neuron.bias_accumulator**0.5
-                neuron.bias += learning_rate * bias_gradient / bias_scale
+                neuron.bias -= learning_rate * bias_gradient / bias_scale
 
         return output
 
@@ -304,7 +307,7 @@ class Adam(Optimizer):
                         1 - self.beta_2**self.step
                     )
 
-                    neuron.weights[weight_index] += (
+                    neuron.weights[weight_index] -= (
                         learning_rate
                         * f_corrected
                         / (self.epsilon + s_corrected**0.5)
@@ -328,7 +331,7 @@ class Adam(Optimizer):
                     1 - self.beta_2**self.step
                 )
 
-                neuron.bias += (
+                neuron.bias -= (
                     learning_rate * f_corrected / (self.epsilon + s_corrected**0.5)
                 )
 
