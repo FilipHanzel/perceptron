@@ -248,7 +248,12 @@ class Perceptron:
         metrics = loaded_metrics
 
         if self.normalizer is not None:
-            self.normalizer.adapt(training_inputs)
+            self.normalizer.adapt(training_inputs, clean=False)
+            training_inputs = [self.normalizer(inp) for inp in training_inputs]
+            validation_inputs = [self.normalizer(inp) for inp in validation_inputs]
+        else:
+            training_inputs = training_inputs.copy()
+        training_targets = training_targets.copy()
 
         progress = tqdm(
             range(epochs),
@@ -258,13 +263,20 @@ class Perceptron:
 
         validate = len(validation_inputs) > 0
 
-        training_inputs = training_inputs.copy()
-        training_targets = training_targets.copy()
-
-        measured = self.measure(training_inputs, training_targets, metrics)
+        measured = self.measure(
+            training_inputs,
+            training_targets,
+            metrics,
+            normalize_input=False,
+        )
         history = {metric: [measured[metric]] for metric in measured}
         if validate:
-            measured = self.measure(validation_inputs, validation_targets, metrics)
+            measured = self.measure(
+                validation_inputs,
+                validation_targets,
+                metrics,
+                normalize_input=False,
+            )
             history.update({"val_" + metric: [measured[metric]] for metric in measured})
 
         learning_rate = base_learning_rate
@@ -281,8 +293,19 @@ class Perceptron:
 
             measured = self.measure(training_inputs, training_targets, metrics)
 
+            measured = self.measure(
+                training_inputs,
+                training_targets,
+                metrics,
+                normalize_input=False,
+            )
             if validate:
-                validated = self.measure(validation_inputs, validation_targets, metrics)
+                validated = self.measure(
+                    validation_inputs,
+                    validation_targets,
+                    metrics,
+                    normalize_input=False,
+                )
                 measured.update(
                     {"val_" + metric: validated[metric] for metric in validated}
                 )
