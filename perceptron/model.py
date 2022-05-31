@@ -104,8 +104,8 @@ class Perceptron:
             self.optimizer = optimizer
         else:
             optimizer = optimizer.lower()
-            if optimizer == "sgd":
-                self.optimizer = optimizers.SGD()
+            if optimizer == "gd":
+                self.optimizer = optimizers.GD()
             elif optimizer == "momentum":
                 self.optimizer = optimizers.Momentum()
             elif optimizer == "nesterov":
@@ -130,9 +130,13 @@ class Perceptron:
             else:
                 raise ValueError("Unknown loss function")
 
-    def predict(self, inputs: List[float]) -> List[float]:
+    def predict(
+        self,
+        inputs: List[float],
+        normalize_input: bool = True,
+    ) -> List[float]:
 
-        if self.normalizer is not None:
+        if self.normalizer is not None and normalize_input:
             inputs = self.normalizer(inputs)
 
         state = inputs
@@ -146,27 +150,20 @@ class Perceptron:
             ]
         return state
 
-    def update(
-        self,
-        inputs: List[float],
-        targets: List[float],
-        learning_rate: float,
-    ) -> List[float]:
-
-        if self.normalizer is not None:
-            inputs = self.normalizer(inputs)
-
-        return self.optimizer(inputs, targets, learning_rate)
-
     def measure(
-        self, inputs: List[List[float]], targets: List[List[float]], metrics: List[str]
+        self,
+        inputs: List[List[float]],
+        targets: List[List[float]],
+        metrics: List[str],
+        normalize_input: bool = True,
     ) -> Dict[str, float]:
+
         for metric in metrics.values():
             assert isinstance(
                 metric, perceptron.metrics.Metric
             ), f"Unsupported metric {metric}"
 
-        predictions = [self.predict(inp) for inp in inputs]
+        predictions = [self.predict(inp, normalize_input) for inp in inputs]
         return {name: metric(predictions, targets) for name, metric in metrics.items()}
 
     def train(
@@ -174,12 +171,16 @@ class Perceptron:
         training_inputs: List[List[float]],
         training_targets: List[List[float]],
         epochs: int,
-        base_learning_rate: float,
+        batch_size: int = 1,
+        base_learning_rate: float = 1e-4,
         learning_rate_decay: Union[decays.Decay, str, None] = "linear",
-        metrics: List[str] = ["sse"],
+        metrics: List[str] = ["mae"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
     ) -> Dict:
+
+        if batch_size > len(training_inputs):
+            batch_size = len(training_inputs)
 
         if isinstance(learning_rate_decay, decays.Decay):
             decay = learning_rate_decay
@@ -239,7 +240,12 @@ class Perceptron:
         metrics = loaded_metrics
 
         if self.normalizer is not None:
-            self.normalizer.adapt(training_inputs)
+            self.normalizer.adapt(training_inputs, clean=False)
+            training_inputs = [self.normalizer(inp) for inp in training_inputs]
+            validation_inputs = [self.normalizer(inp) for inp in validation_inputs]
+        else:
+            training_inputs = training_inputs.copy()
+        training_targets = training_targets.copy()
 
         progress = tqdm(
             range(epochs),
@@ -249,16 +255,22 @@ class Perceptron:
 
         validate = len(validation_inputs) > 0
 
-        training_inputs = training_inputs.copy()
-        training_targets = training_targets.copy()
-
-        measured = self.measure(training_inputs, training_targets, metrics)
+        measured = self.measure(
+            training_inputs,
+            training_targets,
+            metrics,
+            normalize_input=False,
+        )
         history = {metric: [measured[metric]] for metric in measured}
         if validate:
-            measured = self.measure(validation_inputs, validation_targets, metrics)
+            measured = self.measure(
+                validation_inputs,
+                validation_targets,
+                metrics,
+                normalize_input=False,
+            )
             history.update({"val_" + metric: [measured[metric]] for metric in measured})
 
-        learning_rate = base_learning_rate
         for epoch in progress:
 
             training_inputs, training_targets = data_utils.shuffle(
@@ -267,13 +279,32 @@ class Perceptron:
 
             learning_rate = decay(epoch)
 
-            for inputs, target in zip(training_inputs, training_targets):
-                prediction = self.update(inputs, target, learning_rate)
+            for inputs, targets in zip(training_inputs, training_targets):
 
-            measured = self.measure(training_inputs, training_targets, metrics)
+                self.optimizer.forward_pass(inputs)
+                self.optimizer.backprop(targets)
+                self.optimizer.accumulate_gradient()
 
+                if (
+                    self.optimizer.batch_size % batch_size == 0
+                    or self.optimizer.batch_size == len(training_inputs)
+                ):
+                    self.optimizer.update(learning_rate)
+                    self.optimizer.forget_gradient()
+
+            measured = self.measure(
+                training_inputs,
+                training_targets,
+                metrics,
+                normalize_input=False,
+            )
             if validate:
-                validated = self.measure(validation_inputs, validation_targets, metrics)
+                validated = self.measure(
+                    validation_inputs,
+                    validation_targets,
+                    metrics,
+                    normalize_input=False,
+                )
                 measured.update(
                     {"val_" + metric: validated[metric] for metric in validated}
                 )
@@ -289,12 +320,13 @@ class Perceptron:
 def cross_validation(
     inputs: List[List[float]],
     targets: List[List[float]],
+    model_params: Dict,
     fold_count: int,
     epoch: int,
-    base_learning_rate: float,
-    learning_rate_decay: Union[decays.Decay, str, None],
-    model_params: Dict,
-    metrics: List[str] = ["sse"],
+    batch_size: int,
+    base_learning_rate: float = 1e-4,
+    learning_rate_decay: Union[decays.Decay, str, None] = "linear",
+    metrics: List[str] = ["mae"],
 ) -> List[Dict]:
 
     folds = data_utils.kfold_split(
@@ -318,6 +350,7 @@ def cross_validation(
             training_inputs=train_inputs,
             training_targets=train_targets,
             epochs=epoch,
+            batch_size=batch_size,
             base_learning_rate=base_learning_rate,
             learning_rate_decay=learning_rate_decay,
             metrics=metrics,
