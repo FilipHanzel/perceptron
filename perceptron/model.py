@@ -104,8 +104,8 @@ class Perceptron:
             self.optimizer = optimizer
         else:
             optimizer = optimizer.lower()
-            if optimizer == "sgd":
-                self.optimizer = optimizers.SGD()
+            if optimizer == "gd":
+                self.optimizer = optimizers.GD()
             elif optimizer == "momentum":
                 self.optimizer = optimizers.Momentum()
             elif optimizer == "nesterov":
@@ -150,18 +150,6 @@ class Perceptron:
             ]
         return state
 
-    def update(
-        self,
-        inputs: List[float],
-        targets: List[float],
-        learning_rate: float,
-    ) -> List[float]:
-
-        if self.normalizer is not None:
-            inputs = self.normalizer(inputs)
-
-        return self.optimizer(inputs, targets, learning_rate)
-
     def measure(
         self,
         inputs: List[List[float]],
@@ -183,12 +171,16 @@ class Perceptron:
         training_inputs: List[List[float]],
         training_targets: List[List[float]],
         epochs: int,
+        batch_size: int = 1,
         base_learning_rate: float = 1e-4,
         learning_rate_decay: Union[decays.Decay, str, None] = "linear",
         metrics: List[str] = ["mae"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
     ) -> Dict:
+
+        if batch_size > len(training_inputs):
+            batch_size = len(training_inputs)
 
         if isinstance(learning_rate_decay, decays.Decay):
             decay = learning_rate_decay
@@ -279,7 +271,6 @@ class Perceptron:
             )
             history.update({"val_" + metric: [measured[metric]] for metric in measured})
 
-        learning_rate = base_learning_rate
         for epoch in progress:
 
             training_inputs, training_targets = data_utils.shuffle(
@@ -288,10 +279,18 @@ class Perceptron:
 
             learning_rate = decay(epoch)
 
-            for inputs, target in zip(training_inputs, training_targets):
-                prediction = self.update(inputs, target, learning_rate)
+            for inputs, targets in zip(training_inputs, training_targets):
 
-            measured = self.measure(training_inputs, training_targets, metrics)
+                self.optimizer.forward_pass(inputs)
+                self.optimizer.backprop(targets)
+                self.optimizer.accumulate_gradient()
+
+                if (
+                    self.optimizer.batch_size % batch_size == 0
+                    or self.optimizer.batch_size == len(training_inputs)
+                ):
+                    self.optimizer.update(learning_rate)
+                    self.optimizer.forget_gradient()
 
             measured = self.measure(
                 training_inputs,
@@ -324,7 +323,7 @@ def cross_validation(
     model_params: Dict,
     fold_count: int,
     epoch: int,
-    base_learning_rate: float,
+    batch_size: int,
     base_learning_rate: float = 1e-4,
     learning_rate_decay: Union[decays.Decay, str, None] = "linear",
     metrics: List[str] = ["mae"],
@@ -351,6 +350,7 @@ def cross_validation(
             training_inputs=train_inputs,
             training_targets=train_targets,
             epochs=epoch,
+            batch_size=batch_size,
             base_learning_rate=base_learning_rate,
             learning_rate_decay=learning_rate_decay,
             metrics=metrics,

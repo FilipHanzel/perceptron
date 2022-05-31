@@ -9,6 +9,8 @@ class Neuron:
         "inputs",
         "output",
         "error",
+        "gradients",
+        "bias_gradient",
         "velocities",
         "bias_velocity",
         "weights_cache",

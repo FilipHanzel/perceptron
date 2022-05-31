@@ -12,6 +12,10 @@ class Optimizer(ABC):
         Invoking this method is necessary in order to use any optimizer."""
 
         self.model = model
+        self.batch_size = 0
+
+        # Initialize gradients with zeros
+        self.forget_gradient()
 
     def forward_pass(self, inputs: List[float]) -> List[float]:
         """Pass inputs through the model.
@@ -48,7 +52,9 @@ class Optimizer(ABC):
         *hidden_layers, output_layer = layers
 
         predictions = [neuron.output for neuron in output_layer]
-        loss_derivatives = self.model.loss_function.partial_derivatives(predictions, targets)
+        loss_derivatives = self.model.loss_function.partial_derivatives(
+            predictions, targets
+        )
 
         for neuron, loss in zip(output_layer, loss_derivatives):
             neuron.error = loss * derivatives[-1](neuron.output)
@@ -63,35 +69,42 @@ class Optimizer(ABC):
                     )
                 neuron.error *= derivatives[layer_index](neuron.output)
 
-    def update(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-        """Update weights. Synonym to __call__."""
-        return self(inputs, targets, learning_rate)
+    def accumulate_gradient(self):
+        for layer in self.model.layers:
+            for neuron in layer:
+                for index, inp in enumerate(neuron.inputs):
+                    neuron.gradients[index] += neuron.error * inp
+                neuron.bias_gradient += neuron.error
+                neuron.error = 0.0
+
+        self.batch_size += 1
+
+    def forget_gradient(self):
+        for layer in self.model.layers:
+            for neuron in layer:
+                neuron.gradients = [0.0] * len(neuron.weights)
+                neuron.bias_gradient = 0.0
+
+        self.batch_size = 0
+
+    def update(self, learning_rate: float) -> List[float]:
+        """Update weights based on calculated gradient. Synonym to __call__ method."""
+        return self(learning_rate)
 
     @abstractmethod
-    def __call__(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-        """Update weights."""
+    def __call__(self, learning_rate: float) -> List[float]:
+        """Update weights based on calculated gradient. Synonym to update method."""
 
 
-class SGD(Optimizer):
-    def __call__(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-        output = self.forward_pass(inputs)
-        self.backprop(targets)
-
+class GD(Optimizer):
+    def __call__(self, learning_rate: float) -> None:
         for layer in self.model.layers:
             for neuron in layer:
                 neuron.weights = [
-                    weight - learning_rate * neuron.error * inp
-                    for weight, inp in zip(neuron.weights, neuron.inputs)
+                    weight - learning_rate * gradient / self.batch_size
+                    for weight, gradient in zip(neuron.weights, neuron.gradients)
                 ]
-                neuron.bias -= learning_rate * neuron.error
-
-        return output
+                neuron.bias -= learning_rate * neuron.bias_gradient / self.batch_size
 
 
 class Momentum(Optimizer):
@@ -106,26 +119,22 @@ class Momentum(Optimizer):
                 neuron.velocities = [0] * len(neuron.weights)
                 neuron.bias_velocity = 0
 
-    def __call__(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-        output = self.forward_pass(inputs)
-        self.backprop(targets)
-
+    def __call__(self, learning_rate: float) -> None:
         for layer in self.model.layers:
             for neuron in layer:
-                lre = learning_rate * neuron.error
+                for index, grad in enumerate(neuron.gradients):
+                    grad /= self.batch_size
 
-                for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.velocities[weight_index] *= self.gamma
-                    neuron.velocities[weight_index] += lre * inp
+                    neuron.velocities[index] *= self.gamma
+                    neuron.velocities[index] += learning_rate * grad
 
-                    neuron.weights[weight_index] -= neuron.velocities[weight_index]
+                    neuron.weights[index] -= neuron.velocities[index]
 
-                neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
+                bias_grad = neuron.bias_gradient / self.batch_size
+                neuron.bias_velocity = (
+                    neuron.bias_velocity * self.gamma + learning_rate * bias_grad
+                )
                 neuron.bias -= neuron.bias_velocity
-
-        return output
 
 
 class Nesterov(Optimizer):
@@ -137,13 +146,10 @@ class Nesterov(Optimizer):
 
         for layer in self.model.layers:
             for neuron in layer:
-                neuron.velocities = [0] * len(neuron.weights)
-                neuron.bias_velocity = 0
+                neuron.velocities = [0.0] * len(neuron.weights)
+                neuron.bias_velocity = 0.0
 
-    def __call__(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         for layer in self.model.layers:
             for neuron in layer:
                 neuron.weights_cache = neuron.weights
@@ -152,27 +158,30 @@ class Nesterov(Optimizer):
                     for weight, velocity in zip(neuron.weights, neuron.velocities)
                 ]
 
-        output = self.forward_pass(inputs)
-        self.backprop(targets)
+        output = super().forward_pass(inputs)
 
         for layer in self.model.layers:
             for neuron in layer:
                 neuron.weights = neuron.weights_cache
 
+        return output
+
+    def __call__(self, learning_rate: float) -> None:
         for layer in self.model.layers:
             for neuron in layer:
-                lre = learning_rate * neuron.error
 
-                for weight_index, inp in enumerate(neuron.inputs):
-                    neuron.velocities[weight_index] *= self.gamma
-                    neuron.velocities[weight_index] += lre * inp
+                for index, grad in enumerate(neuron.gradients):
+                    grad /= self.batch_size
+                    neuron.velocities[index] *= self.gamma
+                    neuron.velocities[index] += learning_rate * grad
 
-                    neuron.weights[weight_index] -= neuron.velocities[weight_index]
+                    neuron.weights[index] -= neuron.velocities[index]
 
-                neuron.bias_velocity = neuron.bias_velocity * self.gamma + lre
+                bias_grad = neuron.bias_gradient / self.batch_size
+                neuron.bias_velocity = (
+                    neuron.bias_velocity * self.gamma + learning_rate * bias_grad
+                )
                 neuron.bias -= neuron.bias_velocity
-
-        return output
 
 
 class Adagrad(Optimizer):
@@ -188,28 +197,21 @@ class Adagrad(Optimizer):
                 neuron.accumulator = [self.init_acc] * len(neuron.weights)
                 neuron.bias_accumulator = self.init_acc
 
-    def __call__(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-        output = self.forward_pass(inputs)
-        self.backprop(targets)
-
+    def __call__(self, learning_rate: float) -> None:
         for layer in self.model.layers:
             for neuron in layer:
-                for weight_index, inp in enumerate(neuron.inputs):
-                    gradient = neuron.error * inp
-                    neuron.accumulator[weight_index] += gradient**2
+                for index, grad in enumerate(neuron.gradients):
+                    grad /= self.batch_size
 
-                    scale = self.epsilon + neuron.accumulator[weight_index] ** 0.5
-                    neuron.weights[weight_index] -= learning_rate * gradient / scale
+                    neuron.accumulator[index] += grad**2
+                    scale = self.epsilon + neuron.accumulator[index] ** 0.5
+                    neuron.weights[index] -= learning_rate * grad / scale
 
-                bias_gradient = neuron.error
-                neuron.bias_accumulator += bias_gradient**2
+                bias_grad = neuron.bias_gradient / self.batch_size
+                neuron.bias_accumulator += bias_grad**2
 
                 bias_scale = self.epsilon + neuron.bias_accumulator**0.5
-                neuron.bias -= learning_rate * bias_gradient / bias_scale
-
-        return output
+                neuron.bias -= learning_rate * bias_grad / bias_scale
 
 
 class RMSprop(Optimizer):
@@ -231,32 +233,24 @@ class RMSprop(Optimizer):
                 neuron.accumulator = [self.init_acc] * len(neuron.weights)
                 neuron.bias_accumulator = self.init_acc
 
-    def __call__(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-        output = self.forward_pass(inputs)
-        self.backprop(targets)
-
+    def __call__(self, learning_rate: float) -> None:
         for layer in self.model.layers:
             for neuron in layer:
-                for weight_index, inp in enumerate(neuron.inputs):
-                    gradient = neuron.error * inp
-                    neuron.accumulator[weight_index] *= self.decay_rate
-                    neuron.accumulator[weight_index] += (
-                        1 - self.decay_rate
-                    ) * gradient**2
+                for index, grad in enumerate(neuron.gradients):
+                    grad /= self.batch_size
 
-                    scale = self.epsilon + neuron.accumulator[weight_index] ** 0.5
-                    neuron.weights[weight_index] -= learning_rate * gradient / scale
+                    neuron.accumulator[index] *= self.decay_rate
+                    neuron.accumulator[index] += (1 - self.decay_rate) * grad**2
 
-                bias_gradient = neuron.error
+                    scale = self.epsilon + neuron.accumulator[index] ** 0.5
+                    neuron.weights[index] -= learning_rate * grad / scale
+
+                bias_grad = neuron.bias_gradient / self.batch_size
                 neuron.bias_accumulator *= self.decay_rate
-                neuron.bias_accumulator += (1 - self.decay_rate) * bias_gradient**2
+                neuron.bias_accumulator += (1 - self.decay_rate) * bias_grad**2
 
                 bias_scale = self.epsilon + neuron.bias_accumulator**0.5
-                neuron.bias -= learning_rate * bias_gradient / bias_scale
-
-        return output
+                neuron.bias -= learning_rate * bias_grad / bias_scale
 
 
 class Adam(Optimizer):
@@ -264,8 +258,8 @@ class Adam(Optimizer):
         self, epsilon: float = 1e-8, beta_1: float = 0.9, beta_2: float = 0.999
     ):
         self.epsilon = epsilon
-        self.beta_1 = beta_1
-        self.beta_2 = beta_2
+        self.b1 = beta_1
+        self.b2 = beta_2
 
         self.step = 1
 
@@ -279,56 +273,43 @@ class Adam(Optimizer):
                 neuron.first_moment_bias_accumulator = 0.0
                 neuron.second_moment_bias_accumulator = 0.0
 
-    def __call__(
-        self, inputs: List[float], targets: List[float], learning_rate: float
-    ) -> List[float]:
-        output = self.forward_pass(inputs)
-        self.backprop(targets)
-
+    def __call__(self, learning_rate: float) -> None:
         for layer in self.model.layers:
             for neuron in layer:
-                for weight_index, inp in enumerate(neuron.inputs):
-                    gradient = neuron.error * inp
+                for index, grad in enumerate(neuron.gradients):
+                    grad /= self.batch_size
 
-                    neuron.first_moment_accumulator[weight_index] *= self.beta_1
-                    neuron.first_moment_accumulator[weight_index] += (
-                        1 - self.beta_1
-                    ) * gradient
+                    neuron.first_moment_accumulator[index] *= self.b1
+                    neuron.first_moment_accumulator[index] += (1 - self.b1) * grad
 
-                    neuron.second_moment_accumulator[weight_index] *= self.beta_2
-                    neuron.second_moment_accumulator[weight_index] += (
-                        1 - self.beta_2
-                    ) * gradient**2
+                    neuron.second_moment_accumulator[index] *= self.b2
+                    neuron.second_moment_accumulator[index] += (1 - self.b2) * grad**2
 
-                    f_corrected = neuron.first_moment_accumulator[weight_index] / (
-                        1 - self.beta_1**self.step
+                    f_corrected = neuron.first_moment_accumulator[index] / (
+                        1 - self.b1**self.step
                     )
-                    s_corrected = neuron.second_moment_accumulator[weight_index] / (
-                        1 - self.beta_2**self.step
+                    s_corrected = neuron.second_moment_accumulator[index] / (
+                        1 - self.b2**self.step
                     )
 
-                    neuron.weights[weight_index] -= (
+                    neuron.weights[index] -= (
                         learning_rate
                         * f_corrected
                         / (self.epsilon + s_corrected**0.5)
                     )
 
-                bias_gradient = neuron.error
-                neuron.first_moment_bias_accumulator *= self.beta_1
-                neuron.first_moment_bias_accumulator += (
-                    1 - self.beta_1
-                ) * bias_gradient
+                bias_grad = neuron.bias_gradient / self.batch_size
+                neuron.first_moment_bias_accumulator *= self.b1
+                neuron.first_moment_bias_accumulator += (1 - self.b1) * bias_grad
 
-                neuron.second_moment_bias_accumulator *= self.beta_2
-                neuron.second_moment_bias_accumulator += (
-                    1 - self.beta_2
-                ) * bias_gradient**2
+                neuron.second_moment_bias_accumulator *= self.b2
+                neuron.second_moment_bias_accumulator += (1 - self.b2) * bias_grad**2
 
                 f_corrected = neuron.first_moment_bias_accumulator / (
-                    1 - self.beta_1**self.step
+                    1 - self.b1**self.step
                 )
                 s_corrected = neuron.second_moment_bias_accumulator / (
-                    1 - self.beta_2**self.step
+                    1 - self.b2**self.step
                 )
 
                 neuron.bias -= (
@@ -336,5 +317,3 @@ class Adam(Optimizer):
                 )
 
         self.step += 1
-
-        return output
