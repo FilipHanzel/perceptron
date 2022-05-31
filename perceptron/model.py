@@ -130,9 +130,13 @@ class Perceptron:
             else:
                 raise ValueError("Unknown loss function")
 
-    def predict(self, inputs: List[float]) -> List[float]:
+    def predict(
+        self,
+        inputs: List[float],
+        normalize_input: bool = True,
+    ) -> List[float]:
 
-        if self.normalizer is not None:
+        if self.normalizer is not None and normalize_input:
             inputs = self.normalizer(inputs)
 
         state = inputs
@@ -159,14 +163,19 @@ class Perceptron:
         return self.optimizer(inputs, targets, learning_rate)
 
     def measure(
-        self, inputs: List[List[float]], targets: List[List[float]], metrics: List[str]
+        self,
+        inputs: List[List[float]],
+        targets: List[List[float]],
+        metrics: List[str],
+        normalize_input: bool = True,
     ) -> Dict[str, float]:
+
         for metric in metrics.values():
             assert isinstance(
                 metric, perceptron.metrics.Metric
             ), f"Unsupported metric {metric}"
 
-        predictions = [self.predict(inp) for inp in inputs]
+        predictions = [self.predict(inp, normalize_input) for inp in inputs]
         return {name: metric(predictions, targets) for name, metric in metrics.items()}
 
     def train(
