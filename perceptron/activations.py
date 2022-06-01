@@ -63,5 +63,11 @@ class Sigmoid(Activation):
         return [value * (1.0 - value) for value in values]
 
 
+class Softmax(Activation):
+    def activate(self, values: List[float]) -> List[float]:
+        exps = [exp(value) for value in values]
+        sum_ = sum(exps)
+        return [exp_ / sum_ for exp_ in exps]
 
-
+    def derivative(self, values: List[float]) -> List[float]:
+        return [value * (1 - value) for value in values]
