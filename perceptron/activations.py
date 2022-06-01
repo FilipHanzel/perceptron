@@ -1,43 +1,73 @@
 from math import exp
+from abc import ABC, abstractmethod
+from typing import List
 
 
-# Activations
+class Activation:
+    @abstractmethod
+    def activate(self, values: List[float]) -> List[float]:
+        """Calculate the activation value."""
+
+    @abstractmethod
+    def derivative(self, values: List[float]) -> List[float]:
+        """Calculate derivative of the activation function."""
 
 
-def heavyside(x: float) -> float:
-    return 1 if x >= 0 else 0
+class Heavyside(Activation):
+    def activate(self, values: List[float]) -> List[float]:
+        return [1.0 if x >= 0.0 else 0.0 for value in values]
+
+    def derivative(self, values: List[float]) -> List[float]:
+        """Return input value.
+
+        Heavyside activation is non-differentiable and thus
+        does not have a derivative. This function returns
+        input value for compatibility with weight updates."""
+        return values
 
 
-def linear(x: float) -> float:
-    return x
+class Linear(Activation):
+    def activate(self, values: List[float]) -> List[float]:
+        return values
+
+    def derivative(self, values: List[float]) -> List[float]:
+        return [1.0] * len(values)
 
 
-def relu(x: float) -> float:
-    return max(0, x)
+class Relu(Activation):
+    def activate(self, values: List[float]) -> List[float]:
+        return [max(0.0, value) for value in values]
+
+    def derivative(self, values: List[float]) -> List[float]:
+        return [1.0 if value > 0.0 else 0.0 for value in values]
 
 
-def leaky_relu(x: float) -> float:
-    return 0.3 * x if x < 0 else x
+class LeakyRelu(Activation):
+    def __init__(self, leak_coefficient: List[float] = 0.1):
+        self.leak_coefficient = leak_coefficient
+
+    def activate(self, values: List[float]) -> List[float]:
+        return [
+            self.leak_coefficient * value if value < 0.0 else value for value in values
+        ]
+
+    def derivative(self, values: List[float]) -> List[float]:
+        return [self.leak_coefficient if value > 0.0 else 0.0 for value in values]
 
 
-def sigmoid(x: float) -> float:
-    return 1.0 / (1.0 + exp(-x))
+class Sigmoid(Activation):
+    def activate(self, values: List[float]) -> List[float]:
+        return [1.0 / (1.0 + exp(-value)) for value in values]
+
+    def derivative(self, values: List[float]) -> List[float]:
+        return [value * (1.0 - value) for value in values]
 
 
-# Derivatives
+class Softmax(Activation):
+    def activate(self, values: List[float]) -> List[float]:
+        exps = [exp(value) for value in values]
+        sum_ = sum(exps)
+        return [exp_ / sum_ for exp_ in exps]
 
-
-def d_linear(x: float) -> float:
-    return 1.0
-
-
-def d_relu(x: float) -> float:
-    return 0.0 if x < 0.0 else 1.0
-
-
-def d_leaky_relu(x: float) -> float:
-    return 0.3 if x < 0.0 else 1.0
-
-
-def d_sigmoid(x: float) -> float:
-    return x * (1.0 - x)
+    def derivative(self, values: List[float]) -> List[float]:
+        return [value * (1 - value) for value in values]

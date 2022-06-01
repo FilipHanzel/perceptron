@@ -34,9 +34,13 @@ class Optimizer(ABC):
                 neuron.output = neuron.bias
                 for w, i in zip(neuron.weights, neuron.inputs):
                     neuron.output += w * i
-                neuron.output = activation(neuron.output)
 
-                state.append(neuron.output)
+            state = [neuron.output for neuron in layer]
+            state = activation.activate(state)
+
+            for neuron, output in zip(layer, state):
+                neuron.output = output
+
             inputs = state
         output = state
 
@@ -47,7 +51,7 @@ class Optimizer(ABC):
 
         Each neuron has to store its error needed for weight update."""
 
-        derivatives = self.model.derivatives
+        activations = self.model.activations
         layers = self.model.layers
         *hidden_layers, output_layer = layers
 
@@ -56,18 +60,27 @@ class Optimizer(ABC):
             predictions, targets
         )
 
-        for neuron, loss in zip(output_layer, loss_derivatives):
-            neuron.error = loss * derivatives[-1](neuron.output)
+        #
+        output = [neuron.output for neuron in output_layer]
+        activation_derivatives = activations[-1].derivative(output)
+
+        for neuron, loss_derivative, activation_derivative in zip(
+            output_layer, loss_derivatives, activation_derivatives
+        ):
+            neuron.error = loss_derivative * activation_derivative
 
         for layer_index in reversed(range(len(hidden_layers))):
-            for neuron_index, neuron in enumerate(layers[layer_index]):
 
+            output = [neuron.output for neuron in layers[layer_index]]
+            activation_derivatives = activations[layer_index].derivative(output)
+
+            for neuron_index, neuron in enumerate(layers[layer_index]):
                 neuron.error = 0.0
                 for front_neuron in layers[layer_index + 1]:
                     neuron.error += (
                         front_neuron.weights[neuron_index] * front_neuron.error
                     )
-                neuron.error *= derivatives[layer_index](neuron.output)
+                neuron.error *= activation_derivatives[neuron_index]
 
     def accumulate_gradient(self):
         for layer in self.model.layers:

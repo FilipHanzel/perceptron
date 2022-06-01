@@ -10,6 +10,11 @@ from perceptron import data_utils
 from perceptron import normalizers
 from perceptron import optimizers
 from perceptron import decays
+from perceptron.optimizers import Optimizer
+from perceptron.decays import Decay
+from perceptron.activations import Activation
+from perceptron.metrics import Metric
+from perceptron.loss import Loss
 import perceptron.activations
 import perceptron.metrics
 import perceptron.loss
@@ -29,40 +34,43 @@ class Perceptron:
         self,
         inputs: int,
         layer_sizes: List[int],
-        activations: Union[str, List[str]],
+        activations: Union[str, List[Union[str, Activation]]],
         init_method: str = "gauss",
         normalization: str = None,
-        optimizer: Union[optimizers.Optimizer, str] = "SGD",
-        loss_function: Union[perceptron.loss.Loss, str] = "MSE",
+        optimizer: Union[Optimizer, str] = "SGD",
+        loss_function: Union[Loss, str] = "MSE",
     ):
         # Initialize layers activations
         if isinstance(activations, str):
             activations = [activations] * len(layer_sizes)
 
-        for activation in activations:
-            assert activation in (
-                "linear",
-                "relu",
-                "leaky_relu",
-                "sigmoid",
-                "heavyside",
-            ), f"Invalid activation ({activation})"
-
         assert len(activations) == len(
             layer_sizes
         ), "Amount of activations must match layers"
 
-        self.activations = [
-            getattr(perceptron.activations, activation) for activation in activations
-        ]
-        if "heavyside" in activations:
-            assert len(layer_sizes) == 1, "Heavyside activation is invalid for MLP"
-            self.derivatives = [lambda _: 1]
-        else:
-            self.derivatives = [
-                getattr(perceptron.activations, "d_" + activation)
-                for activation in activations
-            ]
+        loaded_activations = []
+        for activation in activations:
+            if isinstance(activation, Activation):
+                loaded_activations.append(activation)
+            else:
+                activation = activation.lower()
+                if activation == "heavyside":
+                    if len(layer_sizes) > 1:
+                        raise ValueError("Heavyside activation is invalid for MLP")
+                    loaded_activations.append(perceptron.activations.Heavyside())
+                elif activation == "linear":
+                    loaded_activations.append(perceptron.activations.Linear())
+                elif activation == "relu":
+                    loaded_activations.append(perceptron.activations.Relu())
+                elif activation == "leaky_relu":
+                    loaded_activations.append(perceptron.activations.LeakyRelu())
+                elif activation == "sigmoid":
+                    loaded_activations.append(perceptron.activations.Sigmoid())
+                elif activation == "softmax":
+                    loaded_activations.append(perceptron.activations.Softmax())
+                else:
+                    raise ValueError(f"Invalid activation {activation}")
+        self.activations = loaded_activations
 
         # Initialize layers weights
         assert init_method in (
@@ -100,7 +108,7 @@ class Perceptron:
             raise ValueError("Unknown normalization method")
 
         # Initialize model optimizer
-        if isinstance(optimizer, optimizers.Optimizer):
+        if isinstance(optimizer, Optimizer):
             self.optimizer = optimizer
         else:
             optimizer = optimizer.lower()
@@ -121,7 +129,7 @@ class Perceptron:
 
         self.optimizer.init(self)
 
-        if isinstance(loss_function, perceptron.loss.Loss):
+        if isinstance(loss_function, Loss):
             self.loss_function = loss_function
         else:
             loss_function = loss_function.lower()
@@ -142,12 +150,13 @@ class Perceptron:
         state = inputs
         for layer, activation in zip(self.layers, self.activations):
             state = [
-                activation(
+                (
                     sum([weight * inp for weight, inp in zip(neuron.weights, state)])
                     + neuron.bias
                 )
                 for neuron in layer
             ]
+            state = activation.activate(state)
         return state
 
     def measure(
@@ -159,9 +168,7 @@ class Perceptron:
     ) -> Dict[str, float]:
 
         for metric in metrics.values():
-            assert isinstance(
-                metric, perceptron.metrics.Metric
-            ), f"Unsupported metric {metric}"
+            assert isinstance(metric, Metric), f"Unsupported metric {metric}"
 
         predictions = [self.predict(inp, normalize_input) for inp in inputs]
         return {name: metric(predictions, targets) for name, metric in metrics.items()}
@@ -173,7 +180,7 @@ class Perceptron:
         epochs: int,
         batch_size: int = 1,
         base_learning_rate: float = 1e-4,
-        learning_rate_decay: Union[decays.Decay, str, None] = "linear",
+        learning_rate_decay: Union[Decay, str, None] = "linear",
         metrics: List[str] = ["mae"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
@@ -182,7 +189,7 @@ class Perceptron:
         if batch_size > len(training_inputs):
             batch_size = len(training_inputs)
 
-        if isinstance(learning_rate_decay, decays.Decay):
+        if isinstance(learning_rate_decay, Decay):
             decay = learning_rate_decay
         elif learning_rate_decay is None:
             decay = lambda _: base_learning_rate
@@ -211,7 +218,7 @@ class Perceptron:
 
         loaded_metrics = {}
         for metric in metrics:
-            if isinstance(metric, perceptron.metrics.Metric):
+            if isinstance(metric, Metric):
                 loaded_metrics[metric.name, metric]
             else:
                 metric = metric.lower()
@@ -325,7 +332,7 @@ def cross_validation(
     epoch: int,
     batch_size: int,
     base_learning_rate: float = 1e-4,
-    learning_rate_decay: Union[decays.Decay, str, None] = "linear",
+    learning_rate_decay: Union[Decay, str, None] = "linear",
     metrics: List[str] = ["mae"],
 ) -> List[Dict]:
 
