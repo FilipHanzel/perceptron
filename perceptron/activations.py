@@ -52,7 +52,7 @@ class LeakyRelu(Activation):
         ]
 
     def derivative(self, values: List[float]) -> List[float]:
-        return [self.leak_coefficient if value > 0.0 else 0.0 for value in values]
+        return [self.leak_coefficient if value < 0.0 else 1 for value in values]
 
 
 class Sigmoid(Activation):
