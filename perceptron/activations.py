@@ -1,4 +1,4 @@
-from math import exp
+from math import exp, tanh
 from abc import ABC, abstractmethod
 from typing import List
 
@@ -62,6 +62,14 @@ class Sigmoid(Activation):
     def derivative(self, values: List[float]) -> List[float]:
         values = [1.0 / (1.0 + exp(-value)) for value in values]
         return [value * (1.0 - value) for value in values]
+
+
+class Tanh(Activation):
+    def activate(self, values: List[float]) -> List[float]:
+        return [tanh(value) for value in values]
+
+    def derivative(self, values: List[float]) -> List[float]:
+        return [1 - tanh(value) ** 2 for value in values]
 
 
 class Softmax(Activation):
