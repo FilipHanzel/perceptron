@@ -15,7 +15,7 @@ class Activation:
 
 class Heavyside(Activation):
     def activate(self, values: List[float]) -> List[float]:
-        return [1.0 if x >= 0.0 else 0.0 for value in values]
+        return [1.0 if value >= 0.0 else 0.0 for value in values]
 
     def derivative(self, values: List[float]) -> List[float]:
         """Return input value.
