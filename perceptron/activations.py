@@ -60,6 +60,7 @@ class Sigmoid(Activation):
         return [1.0 / (1.0 + exp(-value)) for value in values]
 
     def derivative(self, values: List[float]) -> List[float]:
+        values = [1.0 / (1.0 + exp(-value)) for value in values]
         return [value * (1.0 - value) for value in values]
 
 
