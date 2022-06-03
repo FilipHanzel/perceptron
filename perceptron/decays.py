@@ -21,7 +21,7 @@ class LinearDecay(Decay):
 
 
 class PolynomialDecay(Decay):
-    def __init__(self, base_learning_rate: float, epochs: int, power: float):
+    def __init__(self, base_learning_rate: float, epochs: int, power: float = 2):
         self.base_rate = base_learning_rate
         self.epochs = epochs
         self.power = power
@@ -43,7 +43,7 @@ class TimeBasedDecay(Decay):
 
 
 class ExpDecay(Decay):
-    def __init__(self, base_learning_rate: float, decay_rate: float):
+    def __init__(self, base_learning_rate: float, decay_rate: float = 0.1):
         self.base_rate = base_learning_rate
         self.decay_rate = decay_rate
 
@@ -52,7 +52,7 @@ class ExpDecay(Decay):
 
 
 class StepDecay(Decay):
-    def __init__(self, base_learning_rate: float, drop: float, interval: int):
+    def __init__(self, base_learning_rate: float, interval: int, drop: float = 0.5):
         self.base_rate = base_learning_rate
         self.drop = drop
         self.interval = interval
