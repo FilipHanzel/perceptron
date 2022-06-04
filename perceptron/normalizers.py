@@ -35,11 +35,17 @@ class MinMax:
 
         self.adapted = True
 
-    def __call__(self, record: List[float]) -> List[float]:
-        return [
-            (value - min_) / (max_ - min_)
-            for value, min_, max_ in zip(record, self.mins, self.maxs)
-        ]
+    def __call__(self, record: List[float], inverse: bool = False) -> List[float]:
+        if inverse:
+            return [
+                value * (max_ - min_) + min_
+                for value, min_, max_ in zip(record, self.mins, self.maxs)
+            ]
+        else:
+            return [
+                (value - min_) / (max_ - min_)
+                for value, min_, max_ in zip(record, self.mins, self.maxs)
+            ]
 
 
 class ZScore:
@@ -103,8 +109,14 @@ class ZScore:
 
         self.adapted = True
 
-    def __call__(self, record: List[float]) -> List[float]:
-        return [
-            (value - mean) / std
-            for value, mean, std in zip(record, self.means, self.stds)
-        ]
+    def __call__(self, record: List[float], inverse: bool = False) -> List[float]:
+        if inverse:
+            return [
+                value * std + mean
+                for value, mean, std in zip(record, self.means, self.stds)
+            ]
+        else:
+            return [
+                (value - mean) / std
+                for value, mean, std in zip(record, self.means, self.stds)
+            ]
