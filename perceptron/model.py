@@ -4,8 +4,7 @@ from typing import List, Tuple, Union, Dict
 
 from tqdm import tqdm
 
-from perceptron.neuron import Neuron
-from perceptron.neuron import WeightInitialization
+from perceptron.layer import Layer
 from perceptron import data_utils
 from perceptron import normalizers
 from perceptron import optimizers
@@ -13,21 +12,18 @@ from perceptron import decays
 from perceptron.optimizers import Optimizer
 from perceptron.decays import Decay
 from perceptron.activations import Activation
+from perceptron.activations import Heavyside
 from perceptron.metrics import Metric
 from perceptron.loss import Loss
-import perceptron.activations
 import perceptron.metrics
 import perceptron.loss
 
 
-class Perceptron:
+class Model:
     __slots__ = [
-        "activations",
-        "derivatives",
         "layers",
         "normalizer",
         "optimizer",
-        "loss_function",
     ]
 
     def __init__(
@@ -37,67 +33,33 @@ class Perceptron:
         activations: Union[str, List[Union[str, Activation]]],
         init_method: str = "gauss",
         normalization: str = None,
-        optimizer: Union[Optimizer, str] = "SGD",
+        optimizer: Union[Optimizer, str] = "GD",
         loss_function: Union[Loss, str] = "MSE",
     ):
-        # Initialize layers activations
+        # Initialize layers
         if isinstance(activations, str):
             activations = [activations] * len(layer_sizes)
 
-        assert len(activations) == len(
-            layer_sizes
-        ), "Amount of activations must match layers"
+        if len(activations) != len(layer_sizes):
+            raise ValueError("Amount of activations must match layers")
 
-        loaded_activations = []
-        for activation in activations:
-            if isinstance(activation, Activation):
-                loaded_activations.append(activation)
-            else:
-                activation = activation.lower()
-                if activation == "heavyside":
-                    if len(layer_sizes) > 1:
-                        raise ValueError("Heavyside activation is invalid for MLP")
-                    loaded_activations.append(perceptron.activations.Heavyside())
-                elif activation == "linear":
-                    loaded_activations.append(perceptron.activations.Linear())
-                elif activation == "relu":
-                    loaded_activations.append(perceptron.activations.Relu())
-                elif activation == "leaky_relu":
-                    loaded_activations.append(perceptron.activations.LeakyRelu())
-                elif activation == "sigmoid":
-                    loaded_activations.append(perceptron.activations.Sigmoid())
-                elif activation == "softmax":
-                    loaded_activations.append(perceptron.activations.Softmax())
-                else:
-                    raise ValueError(f"Invalid activation {activation}")
-        self.activations = loaded_activations
-
-        # Initialize layers weights
-        assert init_method in (
-            "uniform",
-            "gauss",
-            "zeros",
-            "he",
-            "xavier",
-        ), "Invalid weight initialization method"
+        if len(layer_sizes) > 1:
+            for activation in activations:
+                if isinstance(activation, Heavyside) or activation == "heavyside":
+                    raise ValueError("Heavyside activation is invalud for MLP")
 
         input_sizes = [inputs, *layer_sizes]
-
-        init_method = getattr(WeightInitialization, init_method)
         self.layers = [
-            [
-                Neuron(weights=init_method(input_size), bias=0.0)
-                for _ in range(layer_size)
-            ]
-            for (input_size, layer_size) in zip(input_sizes, layer_sizes)
+            Layer(input_size, layer_size, activation, init_method)
+            for input_size, layer_size, activation in zip(
+                input_sizes, layer_sizes, activations
+            )
         ]
 
         # Initialize input normalization method
-        assert normalization in (
-            "minmax",
-            "zscore",
-            None,
-        ), "Unknown normalization method"
+        if normalization not in ("minmax", "zscore", None):
+            raise ValueError("Invalid input normalization method")
+
         if normalization is None:
             self.normalizer = None
         elif normalization == "minmax":
@@ -107,10 +69,28 @@ class Perceptron:
         else:
             raise ValueError("Unknown normalization method")
 
-        # Initialize model optimizer
+        # Initialize loss function
+        if isinstance(loss_function, Loss):
+            pass
+        else:
+            if not isinstance(loss_function, str):
+                raise ValueError(
+                    f"loss_function must be a string or inherit from Loss class, not {type(loss_function)}"
+                )
+            loss_function = loss_function.lower()
+            if loss_function == "mse":
+                loss_function = perceptron.loss.MSE()
+            else:
+                raise ValueError(f"Invalid loss function {loss_function}")
+
+        # Initialize optimizer
         if isinstance(optimizer, Optimizer):
             self.optimizer = optimizer
         else:
+            if not isinstance(optimizer, str):
+                raise ValueError(
+                    f"optimizer must be a string or inherit from Optimizer class, not {type(optimizer)}"
+                )
             optimizer = optimizer.lower()
             if optimizer == "gd":
                 self.optimizer = optimizers.GD()
@@ -125,39 +105,25 @@ class Perceptron:
             elif optimizer == "adam":
                 self.optimizer = optimizers.Adam()
             else:
-                raise ValueError("Unknown optimization method")
+                raise ValueError(f"Invalid optimization method {optimizer}")
 
-        self.optimizer.init(self)
-
-        if isinstance(loss_function, Loss):
-            self.loss_function = loss_function
-        else:
-            loss_function = loss_function.lower()
-            if loss_function == "mse":
-                self.loss_function = perceptron.loss.MSE()
-            else:
-                raise ValueError("Unknown loss function")
+        self.optimizer.init(self.layers, loss_function)
 
     def predict(
         self,
         inputs: List[float],
         normalize_input: bool = True,
     ) -> List[float]:
+        """Normalize inputs if needed and do forward pass."""
 
-        if self.normalizer is not None and normalize_input:
+        if normalize_input and self.normalizer is not None:
             inputs = self.normalizer(inputs)
 
-        state = inputs
-        for layer, activation in zip(self.layers, self.activations):
-            state = [
-                (
-                    sum([weight * inp for weight, inp in zip(neuron.weights, state)])
-                    + neuron.bias
-                )
-                for neuron in layer
-            ]
-            state = activation.activate(state)
-        return state
+        for layer in self.layers:
+            outputs = layer.forward_pass(inputs)
+            inputs = outputs
+
+        return outputs
 
     def measure(
         self,
@@ -189,40 +155,39 @@ class Perceptron:
         if batch_size > len(training_inputs):
             batch_size = len(training_inputs)
 
-        if isinstance(learning_rate_decay, Decay):
-            decay = learning_rate_decay
-        elif learning_rate_decay is None:
+        if learning_rate_decay is None:
             decay = lambda _: base_learning_rate
-        elif learning_rate_decay == "linear":
-            decay = decays.LinearDecay(
-                base_learning_rate=base_learning_rate, epochs=epochs
-            )
-        elif learning_rate_decay == "polynomial":
-            decay = decays.PolynomialDecay(
-                base_learning_rate=base_learning_rate, epochs=epochs, power=2
-            )
-        elif learning_rate_decay == "timebased":
-            decay = decays.TimeBasedDecay(
-                base_learning_rate=base_learning_rate, epochs=epochs
-            )
-        elif learning_rate_decay == "exponential":
-            decay = decays.ExpDecay(
-                base_learning_rate=base_learning_rate, decay_rate=0.1
-            )
-        elif learning_rate_decay == "step":
-            decay = decays.StepDecay(
-                base_learning_rate=base_learning_rate, drop=0.5, interval=epochs // 10
-            )
+        elif isinstance(learning_rate_decay, Decay):
+            decay = learning_rate_decay
         else:
-            raise ValueError("Unsupported learning rate decay")
+            if not isinstance(learning_rate_decay, str):
+                raise ValueError(
+                    f"learning_rate_decay must be a string or inherit from Decay class, not {type(learning_rate_decay)}"
+                )
+            learning_rate_decay = learning_rate_decay.lower()
+            if learning_rate_decay == "linear":
+                decay = decays.LinearDecay(base_learning_rate, epochs)
+            elif learning_rate_decay == "polynomial":
+                decay = decays.PolynomialDecay(base_learning_rate, epochs)
+            elif learning_rate_decay == "timebased":
+                decay = decays.TimeBasedDecay(base_learning_rate, epochs)
+            elif learning_rate_decay == "exponential":
+                decay = decays.ExpDecay(base_learning_rate)
+            elif learning_rate_decay == "step":
+                decay = decays.StepDecay(base_learning_rate, interval=epochs // 10)
+            else:
+                raise ValueError(f"Invalid learning rate decay {learning_rate_decay}")
 
         loaded_metrics = {}
         for metric in metrics:
             if isinstance(metric, Metric):
                 loaded_metrics[metric.name, metric]
             else:
+                if not isinstance(metric, str):
+                    raise ValueError(
+                        f"metric must be a string or inherit from Metric class, not {type(metric)}"
+                    )
                 metric = metric.lower()
-
                 if metric == "mae":
                     metric = perceptron.metrics.MAE()
                 elif metric == "mape":
@@ -231,19 +196,17 @@ class Perceptron:
                     metric = perceptron.metrics.MSE()
                 elif metric == "rmse":
                     metric = perceptron.metrics.RMSE()
-                elif metric == ("cos_sim", "cos_similarity"):
+                elif metric == "cos_similarity":
                     metric = perceptron.metrics.CosSim()
-                elif metric in ("bin_acc", "binary_accuracy"):
+                elif metric in "binary_accuracy":
                     metric = perceptron.metrics.BinaryAccuracy()
-                elif metric in ("cat_acc", "categorical_accuracy"):
+                elif metric in "categorical_accuracy":
                     metric = perceptron.metrics.CategoricalAccuracy()
-                elif metric in ("top_k_cat_acc", "top_k_categorical_accuracy"):
+                elif metric in "top_k_categorical_accuracy":
                     metric = perceptron.metrics.TopKCategoricalAccuracy()
                 else:
-                    raise ValueError(f"Unsupported metric {metric}")
-
+                    raise ValueError(f"Invalid metric {metric}")
                 loaded_metrics[metric.name] = metric
-
         metrics = loaded_metrics
 
         if self.normalizer is not None:
@@ -278,6 +241,8 @@ class Perceptron:
             )
             history.update({"val_" + metric: [measured[metric]] for metric in measured})
 
+        progress.set_postfix(**measured)
+
         for epoch in progress:
 
             training_inputs, training_targets = data_utils.shuffle(
@@ -287,17 +252,15 @@ class Perceptron:
             learning_rate = decay(epoch)
 
             for inputs, targets in zip(training_inputs, training_targets):
-
                 self.optimizer.forward_pass(inputs)
                 self.optimizer.backprop(targets)
-                self.optimizer.accumulate_gradient()
 
                 if (
                     self.optimizer.batch_size % batch_size == 0
                     or self.optimizer.batch_size == len(training_inputs)
                 ):
                     self.optimizer.update(learning_rate)
-                    self.optimizer.forget_gradient()
+                    self.optimizer.reset_gradients()
 
             measured = self.measure(
                 training_inputs,
@@ -352,7 +315,7 @@ def cross_validation(
                 train_inputs += fold["inputs"]
                 train_targets += fold["targets"]
 
-        model = Perceptron(**model_params)
+        model = Model(**model_params)
         run = model.train(
             training_inputs=train_inputs,
             training_targets=train_targets,
