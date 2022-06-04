@@ -112,15 +112,6 @@ class Nesterov(Momentum):
     def __init__(self, gamma: float = 0.9):
         self.gamma = gamma
 
-    def init(self, layers: List[Layer], loss_function: Loss) -> None:
-        super().init(layers, loss_function)
-
-        for layer in self.layers:
-            layer.velocities = [
-                [0.0] * layer.input_size for _ in range(layer.layer_size)
-            ]
-            layer.bias_velocities = [0.0] * layer.layer_size
-
     def forward_pass(self, inputs: List[float]) -> List[float]:
         for layer in self.layers:
             layer.weights_cache = layer.weights
