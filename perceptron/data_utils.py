@@ -6,6 +6,12 @@ def transpose(data: List[List]) -> List[List]:
     return [list(column) for column in zip(*data)]
 
 
+def clip(values: List[float], min_: float, max_: float):
+    if min_ > max_:
+        raise ValueError("Minimum cannot be greater than maximum")
+    return [max(min_, min(max_, value)) for value in values]
+
+
 def shuffle(inputs: List[List[float]], targets: List[List[float]]) -> Tuple[List, List]:
     order = list(range(len(inputs)))
     random.shuffle(order)

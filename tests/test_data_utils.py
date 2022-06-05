@@ -2,6 +2,7 @@ import unittest
 
 from perceptron.data_utils import (
     transpose,
+    clip,
     shuffle,
     kfold_split,
     to_binary,
@@ -20,6 +21,19 @@ class TestTranspose(unittest.TestCase):
         self.assertEqual(result, data)
 
         self.assertNotEqual(id(result), id(data))
+
+
+class TestClip(unittest.TestCase):
+    def test(self):
+        data = [1, 2, 3, 4]
+
+        result = clip(data, 2, 3)
+        self.assertEqual(result, [2, 2, 3, 3])
+
+        result = clip(data, 1.5, 3.5)
+        self.assertEqual(result, [1.5, 2, 3, 3.5])
+
+        self.assertRaises(ValueError, clip, data, 2.5, 1.5)
 
 
 class TestShuffle(unittest.TestCase):
