@@ -74,7 +74,8 @@ class Tanh(Activation):
 
 class Softmax(Activation):
     def activate(self, values: List[float]) -> List[float]:
-        exps = [exp(value) for value in values]
+        shifted_values = [value - max(values) for value in values]
+        exps = [exp(value) for value in shifted_values]
         sum_ = sum(exps)
         return [exp_ / sum_ for exp_ in exps]
 
