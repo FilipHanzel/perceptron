@@ -10,6 +10,7 @@ class Loss(ABC):
     def __call__(self, outputs: List[float], targets: List[float]) -> float:
         """Calculate and return loss."""
 
+    @abstractmethod
     def derivative(self, outputs: List[float], targets: List[float]) -> float:
         """Calculate partial derivative of loss for each output."""
 
