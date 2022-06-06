@@ -1,19 +1,41 @@
-from typing import List
+from typing import List, Union
 from abc import ABC, abstractmethod
 
 from perceptron.layer import Layer
 from perceptron.loss import Loss
+import perceptron.loss
 
 
 class Optimizer(ABC):
     def __init__(self, *args, **kwargs):
         """Initialize all necessary optimizer parameters."""
 
-    def init(self, layers: List[Layer], loss_function: Loss) -> None:
+    def init(self, layers: List[Layer], loss_function: Union[Loss, str]) -> None:
         """Store a reference to a list of layers and a loss function to minimize.
 
         Subclasses should initialize all necessary layers parameters in init method.
         Initializing optimizer is necessary in order to use it."""
+
+        if isinstance(loss_function, Loss):
+            pass
+        else:
+            if not isinstance(loss_function, str):
+                raise ValueError(
+                    f"loss_function must be a string or inherit from Loss class, not {type(loss_function)}"
+                )
+            loss_function = loss_function.lower()
+            if loss_function == "mse":
+                loss_function = perceptron.loss.MSE()
+            elif loss_function == "msle":
+                loss_function = perceptron.loss.MSLE()
+            elif loss_function == "mae":
+                loss_function = perceptron.loss.MAE()
+            elif loss_function == "binary_crossentropy":
+                loss_function = perceptron.loss.BinaryCrossentropy()
+            elif loss_function == "categorical_crossentropy":
+                loss_function = perceptron.loss.CategoricalCrossentropy()
+            else:
+                raise ValueError(f"Invalid loss function {loss_function}")
 
         self.layers = layers
         self.loss_function = loss_function
