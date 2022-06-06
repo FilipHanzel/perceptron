@@ -16,7 +16,6 @@ from perceptron.activations import Heavyside
 from perceptron.metrics import Metric
 from perceptron.loss import Loss
 import perceptron.metrics
-import perceptron.loss
 
 
 class Model:
@@ -68,20 +67,6 @@ class Model:
             self.normalizer = normalizers.ZScore()
         else:
             raise ValueError("Unknown normalization method")
-
-        # Initialize loss function
-        if isinstance(loss_function, Loss):
-            pass
-        else:
-            if not isinstance(loss_function, str):
-                raise ValueError(
-                    f"loss_function must be a string or inherit from Loss class, not {type(loss_function)}"
-                )
-            loss_function = loss_function.lower()
-            if loss_function == "mse":
-                loss_function = perceptron.loss.MSE()
-            else:
-                raise ValueError(f"Invalid loss function {loss_function}")
 
         # Initialize optimizer
         if isinstance(optimizer, Optimizer):
