@@ -52,7 +52,7 @@ class LeakyRelu(Activation):
         ]
 
     def derivative(self, values: List[float]) -> List[float]:
-        return [self.leak_coefficient if value < 0.0 else 1 for value in values]
+        return [self.leak_coefficient if value < 0.0 else 1.0 for value in values]
 
 
 class Sigmoid(Activation):
@@ -69,7 +69,7 @@ class Tanh(Activation):
         return [tanh(value) for value in values]
 
     def derivative(self, values: List[float]) -> List[float]:
-        return [1 - tanh(value) ** 2 for value in values]
+        return [1.0 - tanh(value) ** 2 for value in values]
 
 
 class Softmax(Activation):
@@ -80,4 +80,4 @@ class Softmax(Activation):
         return [exp_ / sum_ for exp_ in exps]
 
     def derivative(self, values: List[float]) -> List[float]:
-        return [value * (1 - value) for value in values]
+        return [value * (1.0 - value) for value in values]
