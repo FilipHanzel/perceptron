@@ -87,3 +87,23 @@ class BinaryCrossentropy(Loss):
             for target, output in zip(targets, outputs)
         ]
 
+
+class CategoricalCrossentropy(Loss):
+    """Should be used with softmax activation in last layer."""
+
+    def __init__(self, epsilon: float = 1e-10):
+        self.epsilon = epsilon
+
+    def __call__(self, outputs: List[float], targets: List[float]) -> float:
+        outputs = clip(outputs, self.epsilon, 1 - self.epsilon)
+
+        cce = 0.0
+        for target, output in zip(targets, outputs):
+            cce += target * log(output)
+
+        return -cce / len(outputs)
+
+    def derivative(self, outputs: List[float], targets: List[float]) -> List[float]:
+        outputs = clip(outputs, self.epsilon, 1 - self.epsilon)
+
+        return [-target / output for target, output in zip(targets, outputs)]
