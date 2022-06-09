@@ -58,15 +58,11 @@ class Optimizer(ABC):
 
         *hidden_layers, output_layer = self.layers
 
-        dlosses = self.loss_function.derivative(output_layer.outputs, targets)
-        dactivations = output_layer.activation.derivative(output_layer.outputs)
+        dstate = self.loss_function.derivative(output_layer.outputs, targets)
 
-        output_layer.deltas = [dl * da for dl, da in zip(dlosses, dactivations)]
-        output_layer.accumulate_gradients()
-
-        for layer, next_layer in zip(reversed(hidden_layers), reversed(self.layers)):
-            layer.backprop(next_layer)
-            layer.accumulate_gradients()
+        for layer in self.layers:
+            dstate = output_layer.activation.backprop(dstate)
+            dstate = output_layer.backprop(dstate)
 
         self.batch_size += 1
 
@@ -91,7 +87,7 @@ class GD(Optimizer):
 
                 for w in range(layer.input_size):
                     layer.weights[n][w] -= (
-                        learning_rate * layer.gradients[n][w] / self.batch_size
+                        learning_rate * layer.weights_gradients[n][w] / self.batch_size
                     )
 
                 layer.biases[n] -= (
@@ -119,7 +115,7 @@ class Momentum(Optimizer):
                 for w in range(layer.input_size):
                     layer.velocities[n][w] *= self.gamma
                     layer.velocities[n][w] += (
-                        learning_rate * layer.gradients[n][w] / self.batch_size
+                        learning_rate * layer.weights_gradients[n][w] / self.batch_size
                     )
                     layer.weights[n][w] -= layer.velocities[n][w]
 
@@ -175,7 +171,7 @@ class Adagrad(Optimizer):
             for n in range(layer.layer_size):
 
                 for w in range(layer.input_size):
-                    grad = layer.gradients[n][w] / self.batch_size
+                    grad = layer.weights_gradients[n][w] / self.batch_size
 
                     layer.accumulators[n][w] += grad**2
                     scale = self.epsilon + layer.accumulators[n][w] ** 0.5
@@ -213,7 +209,7 @@ class RMSprop(Optimizer):
             for n in range(layer.layer_size):
 
                 for w in range(layer.input_size):
-                    grad = layer.gradients[n][w] / self.batch_size
+                    grad = layer.weights_gradients[n][w] / self.batch_size
 
                     layer.accumulators[n][w] *= self.decay_rate
                     layer.accumulators[n][w] += (1 - self.decay_rate) * grad**2
@@ -258,7 +254,7 @@ class Adam(Optimizer):
             for n in range(layer.layer_size):
 
                 for w in range(layer.input_size):
-                    grad = layer.gradients[n][w] / self.batch_size
+                    grad = layer.weights_gradients[n][w] / self.batch_size
 
                     layer.first_moment_accumulators[n][w] *= self.b1
                     layer.first_moment_accumulators[n][w] += (1 - self.b1) * grad

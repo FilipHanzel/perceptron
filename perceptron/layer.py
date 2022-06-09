@@ -15,8 +15,8 @@ class Layer:
         "biases",
         "outputs",
         "inputs",
-        "deltas",
-        "gradients",
+        "inputs_gradients",
+        "weights_gradients",
         "bias_gradients",
         "velocities",
         "bias_velocities",
@@ -75,10 +75,11 @@ class Layer:
 
         # Reference to the most recent input
         self.inputs: List[float] = None
-        # Per neuron errors
-        self.deltas: List[float] = None
+        # Store reference to the layer input gradients 
+        # (gradients of next layer outputs)
+        self.inputs_gradients: List[float] = None
         # Accumulated gradients of the weigts
-        self.gradients: List[List[float]] = None
+        self.weights_gradients: List[List[float]] = None
         self.bias_gradients: List[float] = None
         # Velocities acumulators for momentum optimizer
         self.velocities: List[List[float]] = None
@@ -108,28 +109,29 @@ class Layer:
 
         return self.outputs
 
-    def backprop(self, next_layer: "Layer") -> None:
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
 
-        self.deltas = [0.0] * self.layer_size
-
-        activation_derivatives = self.activation.derivative(self.outputs)
-
-        for neuron_index in range(self.layer_size):
-            for next_layer_neuron_index in range(next_layer.layer_size):
-                self.deltas[neuron_index] += (
-                    next_layer.weights[next_layer_neuron_index][neuron_index]
-                    * next_layer.deltas[next_layer_neuron_index]
-                )
-            self.deltas[neuron_index] *= activation_derivatives[neuron_index]
-
-    def accumulate_gradients(self):
+        # First step is to accumulate gradients to later update the weights
         for neuron_index in range(self.layer_size):
             for weight_index in range(self.input_size):
-                self.gradients[neuron_index][weight_index] += (
-                    self.deltas[neuron_index] * self.inputs[weight_index]
+                self.weights_gradients[neuron_index][weight_index] += (
+                    outputs_gradients[neuron_index] * self.inputs[weight_index]
                 )
-            self.bias_gradients[neuron_index] += self.deltas[neuron_index]
+            self.bias_gradients[neuron_index] += outputs_gradients[neuron_index]
+
+        # Next, output_gradients need to be propagated backwards
+        # through the layer weights to calculate previous layer output gradients
+        self.inputs_gradients = [0.0] * self.input_size
+
+        for input_index in range(self.input_size):
+            for neuron_index in range(self.layer_size):
+                self.inputs_gradients[input_index] += (
+                    self.weights[neuron_index][input_index]
+                    * outputs_gradients[neuron_index]
+                )
+
+        return self.inputs_gradients
 
     def reset_gradients(self):
-        self.gradients = [[0.0] * self.input_size for _ in range(self.layer_size)]
+        self.weights_gradients = [[0.0] * self.input_size for _ in range(self.layer_size)]
         self.bias_gradients = [0.0] * self.layer_size
