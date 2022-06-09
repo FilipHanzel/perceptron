@@ -4,80 +4,154 @@ from typing import List
 
 
 class Activation:
+    def __init__(self):
+        self.outputs: List[float] = None
+        self.inputs_gradients: List[float] = None
+
     @abstractmethod
-    def activate(self, values: List[float]) -> List[float]:
+    def activate(self, inputs: List[float]) -> List[float]:
         """Calculate the activation value."""
 
     @abstractmethod
-    def derivative(self, values: List[float]) -> List[float]:
-        """Calculate derivative of the activation function."""
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
+        """Propagate error backwards through the function."""
 
 
 class Heavyside(Activation):
-    def activate(self, values: List[float]) -> List[float]:
-        return [1.0 if value >= 0.0 else 0.0 for value in values]
+    def activate(self, inputs: List[float]) -> List[float]:
+        self.output = [1.0 if value >= 0.0 else 0.0 for value in inputs]
+        return self.output
 
-    def derivative(self, values: List[float]) -> List[float]:
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
         """Return input value.
 
         Heavyside activation is non-differentiable and thus
         does not have a derivative. This function returns
         input value for compatibility with weight updates."""
-        return values
+        return output_gradient
 
 
 class Linear(Activation):
-    def activate(self, values: List[float]) -> List[float]:
-        return values
+    def activate(self, inputs: List[float]) -> List[float]:
+        self.outputs = inputs.copy()
+        return self.outputs
 
-    def derivative(self, values: List[float]) -> List[float]:
-        return [1.0] * len(values)
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
+        # Calculate the derivative
+        outputs_derivatives = [1.0] * len(self.outputs)
+
+        # Backpropagate outputs gradients through the activation
+        self.inputs_gradients = [
+            doutput * gradient
+            for doutput, gradient in zip(outputs_derivatives, outputs_gradients)
+        ]
+
+        return self.inputs_gradients
 
 
 class Relu(Activation):
-    def activate(self, values: List[float]) -> List[float]:
-        return [max(0.0, value) for value in values]
+    def activate(self, inputs: List[float]) -> List[float]:
+        self.outputs = [max(0.0, value) for value in inputs]
+        return self.outputs
 
-    def derivative(self, values: List[float]) -> List[float]:
-        return [1.0 if value > 0.0 else 0.0 for value in values]
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
+        # Calculate the derivative
+        outputs_derivatives = [1.0 if value > 0.0 else 0.0 for value in self.outputs]
+
+        # Backpropagate outputs gradients through the activation
+        self.inputs_gradients = [
+            doutput * gradient
+            for doutput, gradient in zip(outputs_derivatives, outputs_gradients)
+        ]
+
+        return self.inputs_gradients
 
 
 class LeakyRelu(Activation):
     def __init__(self, leak_coefficient: List[float] = 0.1):
-        self.leak_coefficient = leak_coefficient
+        super().__init__()
 
-    def activate(self, values: List[float]) -> List[float]:
-        return [
-            self.leak_coefficient * value if value < 0.0 else value for value in values
+        self.lc = leak_coefficient
+
+    def activate(self, inputs: List[float]) -> List[float]:
+        self.outputs = [self.lc * value if value < 0.0 else value for value in inputs]
+        return self.outputs
+
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
+        # Calculate the derivative
+        outputs_derivatives = [
+            self.lc if value < 0.0 else 1.0 for value in self.outputs
         ]
 
-    def derivative(self, values: List[float]) -> List[float]:
-        return [self.leak_coefficient if value < 0.0 else 1.0 for value in values]
+        # Backpropagate outputs gradients through the activation
+        self.inputs_gradients = [
+            doutput * gradient
+            for doutput, gradient in zip(outputs_derivatives, outputs_gradients)
+        ]
+
+        return self.inputs_gradients
 
 
 class Sigmoid(Activation):
-    def activate(self, values: List[float]) -> List[float]:
-        return [1.0 / (1.0 + exp(-value)) for value in values]
+    def activate(self, inputs: List[float]) -> List[float]:
+        self.outputs = [1.0 / (1.0 + exp(-value)) for value in inputs]
+        return self.outputs
 
-    def derivative(self, values: List[float]) -> List[float]:
-        values = [1.0 / (1.0 + exp(-value)) for value in values]
-        return [value * (1.0 - value) for value in values]
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
+        # Calculate the derivative
+        outputs_derivatives = [output * (1.0 - output) for output in self.outputs]
+
+        # Backpropagate outputs gradients through the activation
+        self.inputs_gradients = [
+            doutput * gradient
+            for doutput, gradient in zip(outputs_derivatives, outputs_gradients)
+        ]
+
+        return self.inputs_gradients
 
 
 class Tanh(Activation):
-    def activate(self, values: List[float]) -> List[float]:
-        return [tanh(value) for value in values]
+    def activate(self, inputs: List[float]) -> List[float]:
+        self.outputs = [tanh(value) for value in values]
+        return self.outputs
 
-    def derivative(self, values: List[float]) -> List[float]:
-        return [1.0 - tanh(value) ** 2 for value in values]
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
+        # Calculate the derivative
+        outputs_derivatives = [1.0 - tanh(value) ** 2 for value in self.outputs]
+
+        # Backpropagate outputs gradients through the activation
+        self.inputs_gradients = [
+            doutput * gradient
+            for doutput, gradient in zip(outputs_derivatives, outputs_gradients)
+        ]
+
+        return self.inputs_gradients
 
 
 class Softmax(Activation):
-    def activate(self, values: List[float]) -> List[float]:
-        shifted_values = [value - max(values) for value in values]
+    def activate(self, inputs: List[float]) -> List[float]:
+        shifted_values = [value - max(inputs) for value in inputs]
         exps = [exp(value) for value in shifted_values]
         sum_ = sum(exps)
-        return [exp_ / sum_ for exp_ in exps]
+        self.outputs = [exp_ / sum_ for exp_ in exps]
 
-    def derivative(self, values: List[float]) -> List[float]:
-        return [value * (1.0 - value) for value in values]
+        return self.outputs
+
+    def backprop(self, outputs_gradients: List[float]) -> List[float]:
+        # Calculate the derivative
+        outputs_derivatives = [[0.0] * len(self.outputs) for _ in self.outputs]
+
+        for i, ivalue in enumerate(self.outputs):
+            for j, jvalue in enumerate(self.outputs):
+                if i == j:
+                    outputs_derivatives[i][j] += ivalue * (1 - jvalue)
+                else:
+                    outputs_derivatives[i][j] -= ivalue * jvalue
+
+        # Backpropagate outputs gradients through the activation
+        self.inputs_gradients = [
+            sum([output * grad for output, grad in zip(outputs, outputs_gradients)])
+            for outputs in outputs_derivatives
+        ]
+
+        return self.inputs_gradients
