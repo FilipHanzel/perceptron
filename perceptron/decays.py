@@ -42,7 +42,7 @@ class TimeBasedDecay(Decay):
         return rate
 
 
-class ExpDecay(Decay):
+class ExponentialDecay(Decay):
     def __init__(self, base_learning_rate: float, decay_rate: float = 0.1):
         self.base_rate = base_learning_rate
         self.decay_rate = decay_rate
