@@ -18,17 +18,20 @@ class Activation:
 
 
 class Heavyside(Activation):
+    """Heavyside, binary step or unit step function.
+
+    Heavyside activation is non-differentiable in 0
+    and anywhere else the derivative is equal to 0
+    thus is incompatible with backpropagation algorithm.
+    This activation should be used only with single layer models."""
+
     def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [1.0 if value >= 0.0 else 0.0 for value in inputs]
         return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
-        """Return input value.
-
-        Heavyside activation is non-differentiable and thus
-        does not have a derivative. This function returns
-        input value for compatibility with weight updates."""
-        return output_gradient
+        """This method returns input value for compatibility with weight updates."""
+        return outputs_gradients
 
 
 class Linear(Activation):
@@ -50,6 +53,8 @@ class Linear(Activation):
 
 
 class Relu(Activation):
+    """Rectified linear unit."""
+
     def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [max(0.0, value) for value in inputs]
         return self.outputs
@@ -68,6 +73,8 @@ class Relu(Activation):
 
 
 class LeakyRelu(Activation):
+    """Leaky rectified linear unit."""
+
     def __init__(self, leak_coefficient: List[float] = 0.1):
         super().__init__()
 
@@ -93,6 +100,8 @@ class LeakyRelu(Activation):
 
 
 class Sigmoid(Activation):
+    """Logistic, sigmoid, or soft step function."""
+
     def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [1.0 / (1.0 + exp(-value)) for value in inputs]
         return self.outputs
@@ -111,6 +120,8 @@ class Sigmoid(Activation):
 
 
 class Tanh(Activation):
+    """Hyperbolic tangent."""
+
     def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [tanh(value) for value in inputs]
         return self.outputs
@@ -129,6 +140,8 @@ class Tanh(Activation):
 
 
 class Softmax(Activation):
+    """Softmax, softargmax or normalized exponential function."""
+
     def forward_pass(self, inputs: List[float]) -> List[float]:
         shifted_values = [value - max(inputs) for value in inputs]
         exps = [exp(value) for value in shifted_values]
