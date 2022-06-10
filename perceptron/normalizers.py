@@ -4,6 +4,20 @@ from abc import ABC, abstractmethod
 from perceptron import data_utils
 
 
+def normalizer_from_string(name: str) -> "Normalizer":
+    """Get normalizer object with default values, based on string. Convenience function."""
+
+    name = name.lower()
+    if name == "minmax":
+        normalizer = MinMax()
+    elif name == "zscore":
+        normalizer = ZScore()
+    else:
+        raise ValueError(f"Invalid normalizer {name}")
+
+    return normalizer
+
+
 class Normalizer(ABC):
     def __init__(self, *args, **kwargs):
         """Initialize all necessary parameters."""
