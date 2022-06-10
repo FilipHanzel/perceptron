@@ -1,9 +1,26 @@
 from typing import List
+from abc import ABC, abstractmethod
 
 from perceptron import data_utils
 
 
-class MinMax:
+class Normalizer(ABC):
+    def __init__(self, *args, **kwargs):
+        """Initialize all necessary parameters."""
+
+    @abstractmethod
+    def adapt(self, data: List[List[float]], clean: bool = True) -> None:
+        """Adjust normalization parameters to fit the data.
+
+        If clean = True - reset parameters before adapting.
+        Otherwise adjust already adapted parameters."""
+
+    @abstractmethod
+    def __call__(self, record: List[float], inverse: bool = False) -> List[float]:
+        """Normalize record. If inverse is True - denormalize instead."""
+
+
+class MinMax(Normalizer):
     def __init__(self):
         self.mins = iter(lambda: 0, None)
         self.maxs = iter(lambda: 1, None)
@@ -48,7 +65,7 @@ class MinMax:
             ]
 
 
-class ZScore:
+class ZScore(Normalizer):
     def __init__(self):
         self.means = iter(lambda: 0, None)
         self.stds = iter(lambda: 1, None)
