@@ -2,6 +2,26 @@ from math import exp
 from abc import ABC, abstractmethod
 
 
+def decay_from_string(name: str, base_learning_rate: float, epochs: int) -> "Decay":
+    """Get decay object with default values, based on string. Convenience function."""
+
+    name = name.lower()
+    if name == "linear":
+        decay = LinearDecay(base_learning_rate, epochs)
+    elif name == "polynomial":
+        decay = PolynomialDecay(base_learning_rate, epochs)
+    elif name == "timebased":
+        decay = TimeBasedDecay(base_learning_rate, epochs)
+    elif name == "exponential":
+        decay = ExponentialDecay(base_learning_rate)
+    elif name == "step":
+        decay = StepDecay(base_learning_rate, epochs // 10)
+    else:
+        raise ValueError(f"Invalid learning rate decay {name}")
+
+    return decay
+
+
 class Decay(ABC):
     def __init__(self, *args, **kwargs):
         """Initialize all necessary parameters."""
