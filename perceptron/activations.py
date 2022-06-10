@@ -9,7 +9,7 @@ class Activation:
         self.inputs_gradients: List[float] = None
 
     @abstractmethod
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         """Calculate the activation value."""
 
     @abstractmethod
@@ -18,9 +18,9 @@ class Activation:
 
 
 class Heavyside(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
-        self.output = [1.0 if value >= 0.0 else 0.0 for value in inputs]
-        return self.output
+    def forward_pass(self, inputs: List[float]) -> List[float]:
+        self.outputs = [1.0 if value >= 0.0 else 0.0 for value in inputs]
+        return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
         """Return input value.
@@ -32,7 +32,7 @@ class Heavyside(Activation):
 
 
 class Linear(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = inputs.copy()
         return self.outputs
 
@@ -50,7 +50,7 @@ class Linear(Activation):
 
 
 class Relu(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [max(0.0, value) for value in inputs]
         return self.outputs
 
@@ -73,7 +73,7 @@ class LeakyRelu(Activation):
 
         self.lc = leak_coefficient
 
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [value if value >= 0.0 else self.lc * value for value in inputs]
         return self.outputs
 
@@ -93,7 +93,7 @@ class LeakyRelu(Activation):
 
 
 class Sigmoid(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [1.0 / (1.0 + exp(-value)) for value in inputs]
         return self.outputs
 
@@ -111,6 +111,7 @@ class Sigmoid(Activation):
 
 
 class Tanh(Activation):
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [tanh(value) for value in inputs]
         return self.outputs
 
@@ -128,7 +129,7 @@ class Tanh(Activation):
 
 
 class Softmax(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         shifted_values = [value - max(inputs) for value in inputs]
         exps = [exp(value) for value in shifted_values]
         sum_ = sum(exps)
