@@ -111,8 +111,7 @@ class Sigmoid(Activation):
 
 
 class Tanh(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
-        self.outputs = [tanh(value) for value in values]
+        self.outputs = [tanh(value) for value in inputs]
         return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
