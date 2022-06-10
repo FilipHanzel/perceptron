@@ -3,6 +3,32 @@ from typing import List
 from abc import ABC, abstractmethod
 
 
+def metric_from_string(name: str) -> "Metric":
+    """Get metric object with default values, based on string. Convenience function."""
+
+    name = name.lower()
+    if name == "mae":
+        metric = MAE()
+    elif name == "mape":
+        metric = MAPE()
+    elif name == "mse":
+        metric = MSE()
+    elif name == "rmse":
+        metric = RMSE()
+    elif name == "cos_similarity":
+        metric = CosSim()
+    elif name in "binary_accuracy":
+        metric = BinaryAccuracy()
+    elif name in "categorical_accuracy":
+        metric = CategoricalAccuracy()
+    elif name in "top_k_categorical_accuracy":
+        metric = TopKCategoricalAccuracy()
+    else:
+        raise ValueError(f"Invalid metric {name}")
+
+    return metric
+
+
 class Metric:
     def __init__(self, name: str = None):
         self.__name = name
