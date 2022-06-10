@@ -56,7 +56,7 @@ class Relu(Activation):
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
         # Calculate the derivative
-        outputs_derivatives = [1.0 if value > 0.0 else 0.0 for value in self.outputs]
+        outputs_derivatives = [1.0 if value >= 0.0 else 0.0 for value in self.outputs]
 
         # Backpropagate outputs gradients through the activation
         self.inputs_gradients = [
@@ -74,13 +74,13 @@ class LeakyRelu(Activation):
         self.lc = leak_coefficient
 
     def activate(self, inputs: List[float]) -> List[float]:
-        self.outputs = [self.lc * value if value < 0.0 else value for value in inputs]
+        self.outputs = [value if value >= 0.0 else self.lc * value for value in inputs]
         return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
         # Calculate the derivative
         outputs_derivatives = [
-            self.lc if value < 0.0 else 1.0 for value in self.outputs
+            1.0 if value >= 0.0 else self.lc for value in self.outputs
         ]
 
         # Backpropagate outputs gradients through the activation
