@@ -4,19 +4,21 @@ from abc import ABC, abstractmethod
 
 
 class Metric:
-    """Class attribute name will be used while displaying metrics."""
+    def __init__(self, name: str = None):
+        self.__name = name
 
     @property
     def name(self):
-        if hasattr(self, "__name"):
+        """Formatted metric name. Should be used while displaying metrics during model training."""
+        if self.__name is not None:
             return self.__name
-        name = self.__class__.__name__
-        name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
-        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", name).lower()
+        default_name = self.__class__.__name__
+        default_name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", default_name)
+        return re.sub("([a-z0-9])([A-Z])", r"\1_\2", default_name).lower()
 
     @name.setter
-    def name(self, value):
-        self.__name = value
+    def name(self, name):
+        self.__name = name
 
     @abstractmethod
     def __call__(
