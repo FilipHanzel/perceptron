@@ -48,7 +48,7 @@ class MAE(Metric):
 
 
 class MAPE(Metric):
-    """Mean Absolute Percentage Error"""
+    """Mean Absolute Percentage Error."""
 
     def __call__(
         self, predictions: List[List[float]], targets: List[List[float]]
@@ -65,7 +65,7 @@ class MAPE(Metric):
 
 
 class MSE(Metric):
-    """Mean Square Error"""
+    """Mean Square Error."""
 
     def __call__(
         self, predictions: List[List[float]], targets: List[List[float]]
@@ -113,7 +113,7 @@ class CosSim(Metric):
 
 
 class BinaryAccuracy(Metric):
-    """Binary accuracy (single output accuracy)."""
+    """Binary accuracy. Average of single output accuracy."""
 
     def __init__(self, threshold: float = 0.5):
         self.threshold = threshold
@@ -137,7 +137,7 @@ class BinaryAccuracy(Metric):
 
 
 class CategoricalAccuracy(Metric):
-    """Categorical accuracy"""
+    """Categorical accuracy. Compares argmax of predictions and targets."""
 
     def __call__(
         self, predictions: List[List[float]], targets: List[List[float]]
@@ -156,7 +156,8 @@ class CategoricalAccuracy(Metric):
 class TopKCategoricalAccuracy(Metric):
     """Top K Categorical accuracy.
 
-    Check if target is amongst top k predictions."""
+    Check if target is amongst top k predictions.
+    If k = 1, it's the same as CategoricalAccuracy."""
 
     def __init__(self, k: int = 3):
         assert isinstance(k, int), "Parameter k has to be of type int"
