@@ -59,10 +59,14 @@ class Optimizer(ABC):
         *hidden_layers, output_layer = self.layers
 
         dstate = self.loss_function.derivative(output_layer.outputs, targets)
+        loss = dstate
 
-        for layer in self.layers:
-            dstate = output_layer.activation.backprop(dstate)
-            dstate = output_layer.backprop(dstate)
+        dstate = output_layer.activation.backprop(dstate)
+        dstate = output_layer.backprop(dstate)
+
+        for layer in reversed(hidden_layers):
+            dstate = layer.activation.backprop(dstate)
+            dstate = layer.backprop(dstate)
 
         self.batch_size += 1
 
