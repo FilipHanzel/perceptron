@@ -1,6 +1,6 @@
 import unittest
 
-from perceptron.data_utils import (
+from perceptron.data_util import (
     transpose,
     clip,
     shuffle,

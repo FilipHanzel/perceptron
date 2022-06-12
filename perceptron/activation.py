@@ -1,5 +1,5 @@
-from math import exp, tanh
 from abc import ABC, abstractmethod
+from math import exp, tanh
 from typing import List
 
 
@@ -9,7 +9,7 @@ class Activation:
         self.inputs_gradients: List[float] = None
 
     @abstractmethod
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         """Calculate the activation value."""
 
     @abstractmethod
@@ -18,21 +18,24 @@ class Activation:
 
 
 class Heavyside(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
-        self.output = [1.0 if value >= 0.0 else 0.0 for value in inputs]
-        return self.output
+    """Heavyside, binary step or unit step function.
+
+    Heavyside activation is non-differentiable in 0
+    and anywhere else the derivative is equal to 0
+    thus is incompatible with backpropagation algorithm.
+    This activation should be used only with single layer models."""
+
+    def forward_pass(self, inputs: List[float]) -> List[float]:
+        self.outputs = [1.0 if value >= 0.0 else 0.0 for value in inputs]
+        return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
-        """Return input value.
-
-        Heavyside activation is non-differentiable and thus
-        does not have a derivative. This function returns
-        input value for compatibility with weight updates."""
-        return output_gradient
+        """This method returns input value for compatibility with weight updates."""
+        return outputs_gradients
 
 
 class Linear(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = inputs.copy()
         return self.outputs
 
@@ -50,13 +53,15 @@ class Linear(Activation):
 
 
 class Relu(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    """Rectified linear unit."""
+
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [max(0.0, value) for value in inputs]
         return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
         # Calculate the derivative
-        outputs_derivatives = [1.0 if value > 0.0 else 0.0 for value in self.outputs]
+        outputs_derivatives = [1.0 if value >= 0.0 else 0.0 for value in self.outputs]
 
         # Backpropagate outputs gradients through the activation
         self.inputs_gradients = [
@@ -68,19 +73,21 @@ class Relu(Activation):
 
 
 class LeakyRelu(Activation):
+    """Leaky rectified linear unit."""
+
     def __init__(self, leak_coefficient: List[float] = 0.1):
         super().__init__()
 
         self.lc = leak_coefficient
 
-    def activate(self, inputs: List[float]) -> List[float]:
-        self.outputs = [self.lc * value if value < 0.0 else value for value in inputs]
+    def forward_pass(self, inputs: List[float]) -> List[float]:
+        self.outputs = [value if value >= 0.0 else self.lc * value for value in inputs]
         return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
         # Calculate the derivative
         outputs_derivatives = [
-            self.lc if value < 0.0 else 1.0 for value in self.outputs
+            1.0 if value >= 0.0 else self.lc for value in self.outputs
         ]
 
         # Backpropagate outputs gradients through the activation
@@ -93,7 +100,9 @@ class LeakyRelu(Activation):
 
 
 class Sigmoid(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    """Logistic, sigmoid, or soft step function."""
+
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         self.outputs = [1.0 / (1.0 + exp(-value)) for value in inputs]
         return self.outputs
 
@@ -111,8 +120,10 @@ class Sigmoid(Activation):
 
 
 class Tanh(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
-        self.outputs = [tanh(value) for value in values]
+    """Hyperbolic tangent."""
+
+    def forward_pass(self, inputs: List[float]) -> List[float]:
+        self.outputs = [tanh(value) for value in inputs]
         return self.outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
@@ -129,7 +140,9 @@ class Tanh(Activation):
 
 
 class Softmax(Activation):
-    def activate(self, inputs: List[float]) -> List[float]:
+    """Softmax, softargmax or normalized exponential function."""
+
+    def forward_pass(self, inputs: List[float]) -> List[float]:
         shifted_values = [value - max(inputs) for value in inputs]
         exps = [exp(value) for value in shifted_values]
         sum_ = sum(exps)

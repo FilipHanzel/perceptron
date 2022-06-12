@@ -1,98 +1,45 @@
 import random
 from math import ceil
-from typing import List, Tuple, Union, Dict
+from typing import Callable, Dict, List, Tuple, Union
 
 from tqdm import tqdm
 
 from perceptron.layer import Layer
-from perceptron import data_utils
-from perceptron import normalizers
-from perceptron import optimizers
-from perceptron import decays
-from perceptron.optimizers import Optimizer
-from perceptron.decays import Decay
-from perceptron.activations import Activation
-from perceptron.activations import Heavyside
-from perceptron.metrics import Metric
-from perceptron.loss import Loss
-import perceptron.metrics
+from perceptron import data_util
+from perceptron.activation import Activation
+from perceptron.decay import Decay, decay_from_string
+from perceptron.loss import Loss, loss_from_string
+from perceptron.metric import Metric, metric_from_string
+from perceptron.normalizer import Normalizer, normalizer_from_string
+from perceptron.optimizer import Optimizer, optimizer_from_string
 
 
 class Model:
     __slots__ = [
         "layers",
+        "trainable_layers",
         "normalizer",
         "optimizer",
     ]
 
     def __init__(
         self,
-        inputs: int,
-        layer_sizes: List[int],
-        activations: Union[str, List[Union[str, Activation]]],
-        init_method: str = "gauss",
-        normalization: str = None,
-        optimizer: Union[Optimizer, str] = "GD",
-        loss_function: Union[Loss, str] = "MSE",
+        normalizer: Union[Normalizer, str] = None,
     ):
-        # Initialize layers
-        if isinstance(activations, str):
-            activations = [activations] * len(layer_sizes)
-
-        if len(activations) != len(layer_sizes):
-            raise ValueError("Amount of activations must match layers")
-
-        if len(layer_sizes) > 1:
-            for activation in activations:
-                if isinstance(activation, Heavyside) or activation == "heavyside":
-                    raise ValueError("Heavyside activation is invalud for MLP")
-
-        input_sizes = [inputs, *layer_sizes]
-        self.layers = [
-            Layer(input_size, layer_size, activation, init_method)
-            for input_size, layer_size, activation in zip(
-                input_sizes, layer_sizes, activations
-            )
-        ]
-
-        # Initialize input normalization method
-        if normalization not in ("minmax", "zscore", None):
-            raise ValueError("Invalid input normalization method")
-
-        if normalization is None:
-            self.normalizer = None
-        elif normalization == "minmax":
-            self.normalizer = normalizers.MinMax()
-        elif normalization == "zscore":
-            self.normalizer = normalizers.ZScore()
-        else:
-            raise ValueError("Unknown normalization method")
-
-        # Initialize optimizer
-        if isinstance(optimizer, Optimizer):
-            self.optimizer = optimizer
-        else:
-            if not isinstance(optimizer, str):
+        # Initialize input normalizer
+        if normalizer is not None and not isinstance(normalizer, Normalizer):
+            if not isinstance(normalizer, str):
                 raise ValueError(
-                    f"optimizer must be a string or inherit from Optimizer class, not {type(optimizer)}"
+                    f"normalizer must be a string or inherit from Normalizer class, not {type(normalizer)}"
                 )
-            optimizer = optimizer.lower()
-            if optimizer == "gd":
-                self.optimizer = optimizers.GD()
-            elif optimizer == "momentum":
-                self.optimizer = optimizers.Momentum()
-            elif optimizer == "nesterov":
-                self.optimizer = optimizers.Nesterov()
-            elif optimizer == "adagrad":
-                self.optimizer = optimizers.Adagrad()
-            elif optimizer == "rmsprop":
-                self.optimizer = optimizers.RMSprop()
-            elif optimizer == "adam":
-                self.optimizer = optimizers.Adam()
-            else:
-                raise ValueError(f"Invalid optimization method {optimizer}")
+            normalizer = normalizer_from_string(normalizer)
+        self.normalizer = normalizer
 
-        self.optimizer.init(self.layers, loss_function)
+        self.layers = []
+        self.trainable_layers = []
+
+    def add(self, layer: Union[Layer, Activation]) -> None:
+        self.layers.append(layer)
 
     def predict(
         self,
@@ -124,22 +71,44 @@ class Model:
         predictions = [self.predict(inp, normalize_input) for inp in inputs]
         return {name: metric(predictions, targets) for name, metric in metrics.items()}
 
+    def compile(self, optimizer: Union[Optimizer, str] = "GD"):
+        """Prepare optimizer and all trainable layers for training with given optimizer."""
+
+        if not isinstance(optimizer, Optimizer):
+            if not isinstance(optimizer, str):
+                raise ValueError(
+                    f"optimizer must be a string or inherit from Optimizer class, not {type(optimizer)}"
+                )
+            optimizer = optimizer_from_string(optimizer)
+
+        self.optimizer = optimizer
+
+        for layer in self.layers:
+            if hasattr(layer, "weights"):
+                self.optimizer.init(layer)
+
     def train(
         self,
         training_inputs: List[List[float]],
         training_targets: List[List[float]],
         epochs: int,
+        loss_function: Union[Loss, str],
         batch_size: int = 1,
         base_learning_rate: float = 1e-4,
         learning_rate_decay: Union[Decay, str, None] = "linear",
         metrics: List[str] = ["mae"],
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
+        session_name: str = "",
     ) -> Dict:
 
-        if batch_size > len(training_inputs):
-            batch_size = len(training_inputs)
+        if len(self.layers) == 0:
+            raise Exception("Model has no layers")
 
+        if not hasattr(self, "optimizer"):
+            raise Exception("Model needs optimizer for training. Compile model first")
+
+        # Prepare learning rate decay
         if learning_rate_decay is None:
             decay = lambda _: base_learning_rate
         elif isinstance(learning_rate_decay, Decay):
@@ -149,142 +118,133 @@ class Model:
                 raise ValueError(
                     f"learning_rate_decay must be a string or inherit from Decay class, not {type(learning_rate_decay)}"
                 )
-            learning_rate_decay = learning_rate_decay.lower()
-            if learning_rate_decay == "linear":
-                decay = decays.LinearDecay(base_learning_rate, epochs)
-            elif learning_rate_decay == "polynomial":
-                decay = decays.PolynomialDecay(base_learning_rate, epochs)
-            elif learning_rate_decay == "timebased":
-                decay = decays.TimeBasedDecay(base_learning_rate, epochs)
-            elif learning_rate_decay == "exponential":
-                decay = decays.ExpDecay(base_learning_rate)
-            elif learning_rate_decay == "step":
-                decay = decays.StepDecay(base_learning_rate, interval=epochs // 10)
-            else:
-                raise ValueError(f"Invalid learning rate decay {learning_rate_decay}")
+            decay = decay_from_string(learning_rate_decay, base_learning_rate, epochs)
 
+        # Prepare metrics
         loaded_metrics = {}
         for metric in metrics:
-            if isinstance(metric, Metric):
-                loaded_metrics[metric.name, metric]
-            else:
+            if not isinstance(metric, Metric):
                 if not isinstance(metric, str):
                     raise ValueError(
                         f"metric must be a string or inherit from Metric class, not {type(metric)}"
                     )
-                metric = metric.lower()
-                if metric == "mae":
-                    metric = perceptron.metrics.MAE()
-                elif metric == "mape":
-                    metric = perceptron.metrics.MAPE()
-                elif metric == "mse":
-                    metric = perceptron.metrics.MSE()
-                elif metric == "rmse":
-                    metric = perceptron.metrics.RMSE()
-                elif metric == "cos_similarity":
-                    metric = perceptron.metrics.CosSim()
-                elif metric in "binary_accuracy":
-                    metric = perceptron.metrics.BinaryAccuracy()
-                elif metric in "categorical_accuracy":
-                    metric = perceptron.metrics.CategoricalAccuracy()
-                elif metric in "top_k_categorical_accuracy":
-                    metric = perceptron.metrics.TopKCategoricalAccuracy()
-                else:
-                    raise ValueError(f"Invalid metric {metric}")
-                loaded_metrics[metric.name] = metric
+                metric = metric_from_string(metric)
+
+            loaded_metrics[metric.name] = metric
         metrics = loaded_metrics
 
+        # Prepare loss function
+        if not isinstance(loss_function, Loss):
+            if not isinstance(loss_function, str):
+                raise ValueError(
+                    f"loss_function must be a string or inherit from Loss class, not {type(loss_function)}"
+                )
+            loss_function = loss_from_string(loss_function)
+
+        # Adapt normalizer and normalize data if normalizer is defined
         if self.normalizer is not None:
             self.normalizer.adapt(training_inputs, clean=False)
-            training_inputs = [self.normalizer(inp) for inp in training_inputs]
-            validation_inputs = [self.normalizer(inp) for inp in validation_inputs]
+
+            tinputs = [self.normalizer(inp) for inp in training_inputs]
+            vinputs = [self.normalizer(inp) for inp in validation_inputs]
         else:
-            training_inputs = training_inputs.copy()
-        training_targets = training_targets.copy()
+            tinputs = training_inputs.copy()
+            vinputs = validation_inputs
+
+        ttargets = training_targets.copy()
+        vtargets = validation_targets
+
+        validate = len(vinputs) > 0
+
+        # Setup progress bar
+        if session_name:
+            session_name = f" {session_name}"
 
         progress = tqdm(
             range(epochs),
             unit="epochs",
-            bar_format="Training: {percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
+            bar_format=f"Training{session_name}: "
+            "{percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
         )
 
-        validate = len(validation_inputs) > 0
-
-        measured = self.measure(
-            training_inputs,
-            training_targets,
-            metrics,
-            normalize_input=False,
-        )
+        # Measure performance before training
+        measured = self.measure(tinputs, ttargets, metrics, False)
         history = {metric: [measured[metric]] for metric in measured}
         if validate:
-            measured = self.measure(
-                validation_inputs,
-                validation_targets,
-                metrics,
-                normalize_input=False,
+            validated = self.measure(vinputs, vtargets, metrics, False)
+            history.update(
+                {"val_" + name: [value] for name, value in validated.items()}
             )
-            history.update({"val_" + metric: [measured[metric]] for metric in measured})
 
         progress.set_postfix(**measured)
 
         for epoch in progress:
 
-            training_inputs, training_targets = data_utils.shuffle(
-                training_inputs, training_targets
-            )
-
+            tinputs, ttargets = data_util.shuffle(tinputs, ttargets)
             learning_rate = decay(epoch)
 
-            for inputs, targets in zip(training_inputs, training_targets):
-                self.optimizer.forward_pass(inputs)
-                self.optimizer.backprop(targets)
+            sample_counter = 1
+            for inputs, targets in zip(tinputs, ttargets):
 
-                if (
-                    self.optimizer.batch_size % batch_size == 0
-                    or self.optimizer.batch_size == len(training_inputs)
-                ):
-                    self.optimizer.update(learning_rate)
-                    self.optimizer.reset_gradients()
+                # Forward pass through the model
+                state = inputs
+                for layer in self.layers:
+                    if hasattr(layer, "weights"):
+                        state = self.optimizer.forward_pass(layer, state)
+                    else:
+                        state = layer.forward_pass(state)
+                outputs = state
 
-            measured = self.measure(
-                training_inputs,
-                training_targets,
-                metrics,
-                normalize_input=False,
-            )
+                # Loss calculation
+                loss = loss_function.derivative(outputs, targets)
+
+                # Backward pass through the model
+                dstate = loss
+
+                for layer in reversed(self.layers):
+                    dstate = layer.backprop(dstate)
+
+                # Perform the update
+                is_batch = sample_counter % batch_size == 0
+                is_last = sample_counter == len(tinputs)
+
+                if is_batch or is_last:
+                    for layer in self.layers:
+                        if hasattr(layer, "weights"):
+                            self.optimizer.update(layer, learning_rate, batch_size)
+
+                sample_counter += 1
+
+            # Measure performance
+            measured = self.measure(tinputs, ttargets, metrics, False)
             if validate:
-                validated = self.measure(
-                    validation_inputs,
-                    validation_targets,
-                    metrics,
-                    normalize_input=False,
-                )
+                validated = self.measure(vinputs, vtargets, metrics, False)
                 measured.update(
-                    {"val_" + metric: validated[metric] for metric in validated}
+                    {"val_" + name: value for name, value in validated.items()}
                 )
-
-            progress.set_postfix(**measured)
-
             for metric in measured:
                 history[metric].append(measured[metric])
+
+            progress.set_postfix(**measured)
 
         return history
 
 
 def cross_validation(
+    model_factory: Callable[[], Model],
     inputs: List[List[float]],
     targets: List[List[float]],
-    model_params: Dict,
     fold_count: int,
-    epoch: int,
+    epochs: int,
+    loss_function: Union[Loss, str],
+    optimizer: Union[Optimizer, str],
     batch_size: int,
     base_learning_rate: float = 1e-4,
     learning_rate_decay: Union[Decay, str, None] = "linear",
     metrics: List[str] = ["mae"],
 ) -> List[Dict]:
 
-    folds = data_utils.kfold_split(
+    folds = data_util.kfold_split(
         inputs, targets, fold_count, stratified=True, random=True
     )
 
@@ -300,11 +260,14 @@ def cross_validation(
                 train_inputs += fold["inputs"]
                 train_targets += fold["targets"]
 
-        model = Model(**model_params)
+        model = model_factory()
+        model.compile(optimizer)
+
         run = model.train(
             training_inputs=train_inputs,
             training_targets=train_targets,
-            epochs=epoch,
+            epochs=epochs,
+            loss_function=loss_function,
             batch_size=batch_size,
             base_learning_rate=base_learning_rate,
             learning_rate_decay=learning_rate_decay,

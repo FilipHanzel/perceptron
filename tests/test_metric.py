@@ -1,6 +1,6 @@
 import unittest
 
-from perceptron.metrics import (
+from perceptron.metric import (
     MAE,
     MAPE,
     MSE,

@@ -1,9 +1,40 @@
 from typing import List
+from abc import ABC, abstractmethod
 
-from perceptron import data_utils
+from perceptron import data_util
 
 
-class MinMax:
+def normalizer_from_string(name: str) -> "Normalizer":
+    """Get normalizer object with default values, based on string. Convenience function."""
+
+    name = name.lower()
+    if name == "minmax":
+        normalizer = MinMax()
+    elif name == "zscore":
+        normalizer = ZScore()
+    else:
+        raise ValueError(f"Invalid normalizer {name}")
+
+    return normalizer
+
+
+class Normalizer(ABC):
+    def __init__(self, *args, **kwargs):
+        """Initialize all necessary parameters."""
+
+    @abstractmethod
+    def adapt(self, data: List[List[float]], clean: bool = True) -> None:
+        """Adjust normalization parameters to fit the data.
+
+        If clean = True - reset parameters before adapting.
+        Otherwise adjust already adapted parameters."""
+
+    @abstractmethod
+    def __call__(self, record: List[float], inverse: bool = False) -> List[float]:
+        """Normalize record. If inverse is True - denormalize instead."""
+
+
+class MinMax(Normalizer):
     def __init__(self):
         self.mins = iter(lambda: 0, None)
         self.maxs = iter(lambda: 1, None)
@@ -11,7 +42,7 @@ class MinMax:
         self.adapted = False
 
     def adapt(self, data: List[List[float]], clean: bool = True) -> None:
-        columns = data_utils.transpose(data)
+        columns = data_util.transpose(data)
 
         if not clean and self.adapted:
             if len(data[0]) != len(self.mins):
@@ -48,7 +79,7 @@ class MinMax:
             ]
 
 
-class ZScore:
+class ZScore(Normalizer):
     def __init__(self):
         self.means = iter(lambda: 0, None)
         self.stds = iter(lambda: 1, None)
@@ -59,7 +90,7 @@ class ZScore:
         self._count: int = None
 
     def adapt(self, data: List[List[float]], clean: bool = True) -> None:
-        columns = data_utils.transpose(data)
+        columns = data_util.transpose(data)
 
         if not self.adapted or clean:
             self._count = len(data)
