@@ -1,6 +1,6 @@
 import unittest
 
-from perceptron.normalizers import MinMax, ZScore
+from perceptron.normalizer import MinMax, ZScore
 
 
 class TestMinMax(unittest.TestCase):

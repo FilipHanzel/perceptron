@@ -1,7 +1,7 @@
 from typing import List
 from abc import ABC, abstractmethod
 
-from perceptron import data_utils
+from perceptron import data_util
 
 
 def normalizer_from_string(name: str) -> "Normalizer":
@@ -42,7 +42,7 @@ class MinMax(Normalizer):
         self.adapted = False
 
     def adapt(self, data: List[List[float]], clean: bool = True) -> None:
-        columns = data_utils.transpose(data)
+        columns = data_util.transpose(data)
 
         if not clean and self.adapted:
             if len(data[0]) != len(self.mins):
@@ -90,7 +90,7 @@ class ZScore(Normalizer):
         self._count: int = None
 
     def adapt(self, data: List[List[float]], clean: bool = True) -> None:
-        columns = data_utils.transpose(data)
+        columns = data_util.transpose(data)
 
         if not self.adapted or clean:
             self._count = len(data)

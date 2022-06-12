@@ -1,5 +1,5 @@
-from math import exp, tanh
 from abc import ABC, abstractmethod
+from math import exp, tanh
 from typing import List
 
 

@@ -1,5 +1,5 @@
-from math import exp
 from abc import ABC, abstractmethod
+from math import exp
 
 
 def decay_from_string(name: str, base_learning_rate: float, epochs: int) -> "Decay":

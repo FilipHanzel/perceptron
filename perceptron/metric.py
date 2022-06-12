@@ -1,6 +1,6 @@
 import re
-from typing import List
 from abc import ABC, abstractmethod
+from typing import List
 
 
 def metric_from_string(name: str) -> "Metric":
@@ -141,7 +141,8 @@ class CosSim(Metric):
 class BinaryAccuracy(Metric):
     """Binary accuracy. Average of single output accuracy."""
 
-    def __init__(self, threshold: float = 0.5):
+    def __init__(self, name: str = None, threshold: float = 0.5):
+        super().__init__(name)
         self.threshold = threshold
 
     def __call__(
@@ -185,7 +186,8 @@ class TopKCategoricalAccuracy(Metric):
     Check if target is amongst top k predictions.
     If k = 1, it's the same as CategoricalAccuracy."""
 
-    def __init__(self, k: int = 3):
+    def __init__(self, name: str = None, k: int = 3):
+        super().__init__(name)
         assert isinstance(k, int), "Parameter k has to be of type int"
         self.name = f"top_{k}_cat_acc"
         self.k = k
@@ -194,7 +196,6 @@ class TopKCategoricalAccuracy(Metric):
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         correct = 0
-
         for prediction_row, target_row in zip(predictions, targets):
             top_k_predictions = [
                 index
@@ -204,6 +205,6 @@ class TopKCategoricalAccuracy(Metric):
             ]
             target = target_row.index(max(target_row))
 
-            correct += target in predictions
-
+            correct += target in top_k_predictions
+        
         return correct / len(predictions)
