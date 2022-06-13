@@ -30,6 +30,10 @@ class Layer:
         "second_moment_weights_accumulators",
         "first_moment_biases_accumulators",
         "second_moment_biases_accumulators",
+        "l1_weights_regularizer",
+        "l1_biases_regularizer",
+        "l2_weights_regularizer",
+        "l2_biases_regularizer",
     ]
 
     def __init__(
@@ -37,6 +41,10 @@ class Layer:
         input_size: int,
         layer_size: int,
         init_method: str = "he",
+        l1_weights_regularizer: float = 0.0,
+        l1_biases_regularizer: float = 0.0,
+        l2_weights_regularizer: float = 0.0,
+        l2_biases_regularizer: float = 0.0,
     ):
         self.input_size = input_size
         self.layer_size = layer_size
@@ -44,6 +52,11 @@ class Layer:
         if init_method not in ("uniform", "gauss", "zeros", "he", "xavier"):
             raise ValueError("Invalid weight initialization method")
         init_method = getattr(weight_init, init_method)
+
+        self.l1_weights_regularizer = l1_weights_regularizer
+        self.l1_biases_regularizer = l1_biases_regularizer
+        self.l2_weights_regularizer = l1_weights_regularizer
+        self.l2_biases_regularizer = l1_biases_regularizer
 
         self.weights: List[List[float]] = init_method(input_size, layer_size)
         self.biases: List[float] = [0.0] * layer_size
@@ -96,6 +109,30 @@ class Layer:
                 )
             self.biases_gradients[neuron_index] += outputs_gradients[neuron_index]
 
+        # Apply l1 regularization
+        if self.l1_weights_regularizer > 0.0:
+            for n in range(self.layer_size):
+                for w in range(self.input_size):
+                    grad = 1 if self.weights[n][w] > 0 else -1
+                    self.weights_gradients[n][w] += self.l1_weights_regularizer * grad
+
+        if self.l1_biases_regularizer > 0.0:
+            for n in range(self.layer_size):
+                grad = 1 if self.biases[n] > 0 else -1
+                self.biases_gradients[n] += self.l1_biases_regularizer * grad
+
+        # Apply l2 regularization
+        if self.l2_weights_regularizer > 0.0:
+            for n in range(self.layer_size):
+                for w in range(self.input_size):
+                    grad = 2 * self.weights[n][w]
+                    self.weights_gradients[n][w] += self.l2_weights_regularizer * grad
+
+        if self.l2_biases_regularizer > 0.0:
+            for n in range(self.layer_size):
+                grad = 2 * self.biases[n]
+                self.biases_gradients[n] += self.l2_biases_regularizer * grad
+
         # Next, output_gradients need to be propagated backwards
         # through the layer weights to calculate previous layer output gradients
         inputs_gradients = [0.0] * self.input_size
@@ -108,6 +145,34 @@ class Layer:
                 )
 
         return inputs_gradients
+
+    def l1_regularization(self) -> float:
+        regularization_loss = 0.0
+
+        if self.l1_weights_regularizer > 0.0:
+            for neuron_weights in self.weights:
+                for weight in neuron_weights:
+                    regularization_loss += abs(weight) * self.l1_weights_regularizer
+
+        if self.l1_biases_regularizer > 0.0:
+            for neuron in self.biases:
+                regularization_loss += abs(neuron) * self.l1_biases_regularizer
+
+        return regularization_loss
+
+    def l2_regularization(self) -> float:
+        regularization_loss = 0.0
+
+        if self.l2_weights_regularizer > 0.0:
+            for neuron_weights in self.weights:
+                for weight in neuron_weights:
+                    regularization_loss += weight**2 * self.l2_weights_regularizer
+
+        if self.l2_biases_regularizer > 0.0:
+            for bias in self.biases:
+                regularization_loss += bias**2 * self.l2_biases_regularizer
+
+        return regularization_loss
 
     def init_gradients(self) -> None:
         """Initialize gradients."""
