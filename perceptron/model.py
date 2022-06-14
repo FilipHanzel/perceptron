@@ -57,20 +57,6 @@ class Model:
 
         return outputs
 
-    def measure(
-        self,
-        inputs: List[List[float]],
-        targets: List[List[float]],
-        metrics: List[str],
-        normalize_input: bool = True,
-    ) -> Dict[str, float]:
-
-        for metric in metrics.values():
-            assert isinstance(metric, Metric), f"Unsupported metric {metric}"
-
-        predictions = [self.predict(inp, normalize_input) for inp in inputs]
-        return {name: metric(predictions, targets) for name, metric in metrics.items()}
-
     def compile(self, optimizer: Union[Optimizer, str] = "GD"):
         """Prepare optimizer and all trainable layers for training with given optimizer."""
 
@@ -86,6 +72,47 @@ class Model:
         for layer in self.layers:
             if hasattr(layer, "weights"):
                 self.optimizer.init(layer)
+
+    def measure(
+        self,
+        training_inputs,
+        training_targets,
+        loss_function: Loss = None,
+        metrics: List[Metric] = None,
+        validation_inputs: List[List[float]] = [],
+        validation_targets: List[List[float]] = [],
+        normalize_input: bool = True,
+    ):
+        measurements = {}
+
+        toutputs = [self.predict(inp, normalize_input) for inp in training_inputs]
+        voutputs = [self.predict(inp, normalize_input) for inp in validation_inputs]
+        ttargets = training_targets
+        vtargets = validation_targets
+
+        # Measure loss
+        if loss_function is not None:
+
+            loss = 0.0
+            for output, target in zip(toutputs, ttargets):
+                loss += loss_function(output, target)
+            measurements["loss"] = loss / len(toutputs)
+
+            if len(validation_inputs) > 0:
+                loss = 0.0
+                for output, target in zip(voutputs, vtargets):
+                    loss += loss_function(output, target)
+                measurements["val_loss"] = loss / len(voutputs)
+
+        # Measure metrics
+        if metrics is not None:
+            for metric in metrics:
+                measurements[metric.name] = metric(toutputs, ttargets)
+
+                if len(validation_inputs) > 0:
+                    measurements["val_" + metric.name] = metric(voutputs, vtargets)
+
+        return measurements
 
     def train(
         self,
@@ -121,7 +148,7 @@ class Model:
             decay = decay_from_string(learning_rate_decay, base_learning_rate, epochs)
 
         # Prepare metrics
-        loaded_metrics = {}
+        loaded_metrics = []
         for metric in metrics:
             if not isinstance(metric, Metric):
                 if not isinstance(metric, str):
@@ -129,8 +156,7 @@ class Model:
                         f"metric must be a string or inherit from Metric class, not {type(metric)}"
                     )
                 metric = metric_from_string(metric)
-
-            loaded_metrics[metric.name] = metric
+            loaded_metrics.append(metric)
         metrics = loaded_metrics
 
         # Prepare loss function
@@ -154,7 +180,31 @@ class Model:
         ttargets = training_targets.copy()
         vtargets = validation_targets
 
-        validate = len(vinputs) > 0
+        # Prepare history dict
+        class History(dict):
+            def add(self, record: Dict):
+                for key, val in record.items():
+                    if key in self:
+                        self[key].append(val)
+                    else:
+                        self[key] = [val]
+
+            def get_last(self):
+                return {key: val[-1] for key, val in self.items()}
+
+        history = History()
+
+        # Measure performance before training
+        measurements = self.measure(
+            tinputs,
+            ttargets,
+            loss_function,
+            metrics,
+            vinputs,
+            vtargets,
+            False,
+        )
+        history.add(measurements)
 
         # Setup progress bar
         if session_name:
@@ -166,17 +216,7 @@ class Model:
             bar_format=f"Training{session_name}: "
             "{percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
         )
-
-        # Measure performance before training
-        measured = self.measure(tinputs, ttargets, metrics, False)
-        history = {metric: [measured[metric]] for metric in measured}
-        if validate:
-            validated = self.measure(vinputs, vtargets, metrics, False)
-            history.update(
-                {"val_" + name: [value] for name, value in validated.items()}
-            )
-
-        progress.set_postfix(**measured)
+        progress.set_postfix(**measurements)
 
         for epoch in progress:
 
@@ -195,11 +235,11 @@ class Model:
                         state = layer.forward_pass(state)
                 outputs = state
 
-                # Loss calculation
-                loss = loss_function.derivative(outputs, targets)
+                # Loss derivative for sample
+                dloss = loss_function.derivative(outputs, targets)
 
                 # Backward pass through the model
-                dstate = loss
+                dstate = dloss
 
                 for layer in reversed(self.layers):
                     dstate = layer.backprop(dstate)
@@ -216,16 +256,18 @@ class Model:
                 sample_counter += 1
 
             # Measure performance
-            measured = self.measure(tinputs, ttargets, metrics, False)
-            if validate:
-                validated = self.measure(vinputs, vtargets, metrics, False)
-                measured.update(
-                    {"val_" + name: value for name, value in validated.items()}
-                )
-            for metric in measured:
-                history[metric].append(measured[metric])
+            measurements = self.measure(
+                tinputs,
+                ttargets,
+                loss_function,
+                metrics,
+                vinputs,
+                vtargets,
+                False,
+            )
+            history.add(measurements)
 
-            progress.set_postfix(**measured)
+            progress.set_postfix(**measurements)
 
         return history
 
