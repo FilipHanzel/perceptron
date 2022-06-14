@@ -189,7 +189,7 @@ class Model:
                 # Forward pass through the model
                 state = inputs
                 for layer in self.layers:
-                    if hasattr(layer, "weights"):
+                    if isinstance(layer, Layer):
                         state = self.optimizer.forward_pass(layer, state)
                     else:
                         state = layer.forward_pass(state)
@@ -210,7 +210,7 @@ class Model:
 
                 if is_batch or is_last:
                     for layer in self.layers:
-                        if hasattr(layer, "weights"):
+                        if isinstance(layer, Layer):
                             self.optimizer.update(layer, learning_rate, batch_size)
 
                 sample_counter += 1
