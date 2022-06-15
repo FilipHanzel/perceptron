@@ -107,10 +107,10 @@ class Model:
         # Measure metrics
         if metrics is not None:
             for m in metrics:
-                measurements[m.name] = m.calculate(toutputs, ttargets)
+                measurements[m.name] = m.calculate_avg(toutputs, ttargets)
 
                 if len(validation_inputs) > 0:
-                    measurements["val_" + m.name] = m.calculate(voutputs, vtargets)
+                    measurements["val_" + m.name] = m.calculate_avg(voutputs, vtargets)
 
         return measurements
 
