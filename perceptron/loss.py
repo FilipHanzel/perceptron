@@ -26,10 +26,19 @@ def loss_from_string(name: str) -> "Loss":
 
 
 class Loss(ABC):
-
     @abstractmethod
     def calculate(self, outputs: List[float], targets: List[float]) -> float:
         """Calculate and return loss."""
+
+    def calculate_avg(
+        self, outputs: List[List[float]], targets: List[List[float]]
+    ) -> float:
+        """Calculate average loss for multiple predictions."""
+        l = 0.0
+        for output, target in zip(outputs, targets):
+            l += self.calculate(output, target)
+
+        return l / len(outputs)
 
     @abstractmethod
     def derivative(self, outputs: List[float], targets: List[float]) -> float:

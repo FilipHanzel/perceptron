@@ -92,17 +92,12 @@ class Model:
 
         # Measure loss
         if loss_function is not None:
-
-            loss = 0.0
-            for output, target in zip(toutputs, ttargets):
-                loss += loss_function.calculate(output, target)
-            measurements["loss"] = loss / len(toutputs)
+            loss = loss_function.calculate_avg(toutputs, ttargets)
+            measurements["loss"] = loss
 
             if len(validation_inputs) > 0:
-                loss = 0.0
-                for output, target in zip(voutputs, vtargets):
-                    loss += loss_function.calculate(output, target)
-                measurements["val_loss"] = loss / len(voutputs)
+                loss = loss_function.calculate_avg(voutputs, vtargets)
+                measurements["val_loss"] = loss
 
         # Measure metrics
         if metrics is not None:
