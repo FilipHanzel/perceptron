@@ -15,7 +15,7 @@ class TestLossIntegrity(unittest.TestCase):
     def check_loss(
         self, loss: Loss, test_outputs: List[float], test_targets: List[int]
     ):
-        call_result = loss(outputs=test_outputs, targets=test_targets)
+        call_result = loss.calculate(outputs=test_outputs, targets=test_targets)
         self.assertIsInstance(call_result, float)
 
         derivatice_result = loss.derivative(test_outputs, test_targets)
