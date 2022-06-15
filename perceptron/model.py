@@ -95,13 +95,13 @@ class Model:
 
             loss = 0.0
             for output, target in zip(toutputs, ttargets):
-                loss += loss_function(output, target)
+                loss += loss_function.calculate(output, target)
             measurements["loss"] = loss / len(toutputs)
 
             if len(validation_inputs) > 0:
                 loss = 0.0
                 for output, target in zip(voutputs, vtargets):
-                    loss += loss_function(output, target)
+                    loss += loss_function.calculate(output, target)
                 measurements["val_loss"] = loss / len(voutputs)
 
         # Measure metrics

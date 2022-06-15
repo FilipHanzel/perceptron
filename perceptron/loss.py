@@ -26,13 +26,10 @@ def loss_from_string(name: str) -> "Loss":
 
 
 class Loss(ABC):
-    def calculate(self, outputs: List[float], targets: List[float]) -> float:
-        """Calculate and return loss. Synonym to __call__ method."""
-        self(outputs, targets)
 
     @abstractmethod
-    def __call__(self, outputs: List[float], targets: List[float]) -> float:
-        """Calculate and return loss. Synonym to calculate method."""
+    def calculate(self, outputs: List[float], targets: List[float]) -> float:
+        """Calculate and return loss."""
 
     @abstractmethod
     def derivative(self, outputs: List[float], targets: List[float]) -> float:
@@ -42,7 +39,7 @@ class Loss(ABC):
 class MSE(Loss):
     """Mean Squared Error."""
 
-    def __call__(self, outputs: List[float], targets: List[float]) -> float:
+    def calculate(self, outputs: List[float], targets: List[float]) -> float:
         se = 0.0
         for output, target in zip(outputs, targets):
             se += (output - target) ** 2
@@ -59,7 +56,7 @@ class MSE(Loss):
 class MSLE(Loss):
     """Mean Squared Logarithmic Error."""
 
-    def __call__(self, outputs: List[float], targets: List[float]) -> float:
+    def calculate(self, outputs: List[float], targets: List[float]) -> float:
         se = 0.0
         for prediction, target in zip(outputs, targets):
             se += (log(1 + prediction) - log(1 + target)) ** 2
@@ -76,7 +73,7 @@ class MSLE(Loss):
 class MAE(Loss):
     """Mean Absolute Error."""
 
-    def __call__(self, outputs: List[float], targets: List[float]) -> float:
+    def calculate(self, outputs: List[float], targets: List[float]) -> float:
         ae = 0.0
         for output, target in zip(outputs, targets):
             ae += abs(output - target)
@@ -93,7 +90,7 @@ class BinaryCrossentropy(Loss):
     def __init__(self, epsilon: float = 1e-10):
         self.epsilon = epsilon
 
-    def __call__(self, outputs: List[float], targets: List[float]) -> float:
+    def calculate(self, outputs: List[float], targets: List[float]) -> float:
         outputs = clip(outputs, self.epsilon, 1 - self.epsilon)
 
         bce = 0.0
@@ -115,7 +112,7 @@ class CategoricalCrossentropy(Loss):
     def __init__(self, epsilon: float = 1e-10):
         self.epsilon = epsilon
 
-    def __call__(self, outputs: List[float], targets: List[float]) -> float:
+    def calculate(self, outputs: List[float], targets: List[float]) -> float:
         outputs = clip(outputs, self.epsilon, 1 - self.epsilon)
 
         cce = 0.0
