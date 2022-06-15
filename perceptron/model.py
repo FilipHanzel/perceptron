@@ -106,11 +106,11 @@ class Model:
 
         # Measure metrics
         if metrics is not None:
-            for metric in metrics:
-                measurements[metric.name] = metric(toutputs, ttargets)
+            for m in metrics:
+                measurements[m.name] = m.calculate(toutputs, ttargets)
 
                 if len(validation_inputs) > 0:
-                    measurements["val_" + metric.name] = metric(voutputs, vtargets)
+                    measurements["val_" + m.name] = m.calculate(voutputs, vtargets)
 
         return measurements
 

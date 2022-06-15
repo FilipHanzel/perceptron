@@ -47,7 +47,7 @@ class Metric:
         self.__name = name
 
     @abstractmethod
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         """Calculate metric."""
@@ -59,7 +59,7 @@ class Metric:
 class MAE(Metric):
     """Mean Absolute Error."""
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         ae = 0.0
@@ -76,7 +76,7 @@ class MAE(Metric):
 class MAPE(Metric):
     """Mean Absolute Percentage Error."""
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         ape = 0.0
@@ -93,7 +93,7 @@ class MAPE(Metric):
 class MSE(Metric):
     """Mean Square Error."""
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         se = 0.0
@@ -110,16 +110,16 @@ class MSE(Metric):
 class RMSE(MSE):
     """Root Mean Square Error."""
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
-        return super().__call__(predictions, targets) ** 0.5
+        return super().calculate(predictions, targets) ** 0.5
 
 
 class CosSim(Metric):
     """Cosine Similarity."""
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         m_sum = 0.0
@@ -145,7 +145,7 @@ class BinaryAccuracy(Metric):
         super().__init__(name)
         self.threshold = threshold
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         correct = 0
@@ -166,7 +166,7 @@ class BinaryAccuracy(Metric):
 class CategoricalAccuracy(Metric):
     """Categorical accuracy. Compares argmax of predictions and targets."""
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         correct = 0
@@ -192,7 +192,7 @@ class TopKCategoricalAccuracy(Metric):
         self.name = f"top_{k}_cat_acc"
         self.k = k
 
-    def __call__(
+    def calculate(
         self, predictions: List[List[float]], targets: List[List[float]]
     ) -> float:
         correct = 0
@@ -206,5 +206,5 @@ class TopKCategoricalAccuracy(Metric):
             target = target_row.index(max(target_row))
 
             correct += target in top_k_predictions
-        
+
         return correct / len(predictions)
