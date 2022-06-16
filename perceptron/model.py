@@ -4,9 +4,10 @@ from typing import Callable, Dict, List, Tuple, Union
 
 from tqdm import tqdm
 
-from perceptron.layer import Layer
 from perceptron import data_util
+from perceptron.layer import Layer
 from perceptron.activation import Activation
+from perceptron.dropout import Dropout
 from perceptron.decay import Decay, decay_from_string
 from perceptron.loss import Loss, loss_from_string
 from perceptron.metric import Metric, metric_from_string
@@ -38,7 +39,7 @@ class Model:
         self.layers = []
         self.trainable_layers = []
 
-    def add(self, layer: Union[Layer, Activation]) -> None:
+    def add(self, layer: Union[Layer, Activation, Dropout]) -> None:
         self.layers.append(layer)
 
     def predict(
@@ -226,6 +227,8 @@ class Model:
                 for layer in self.layers:
                     if isinstance(layer, Layer):
                         state = self.optimizer.forward_pass(layer, state)
+                    elif isinstance(layer, Dropout):
+                        state = layer.forward_pass(state, training=True)
                     else:
                         state = layer.forward_pass(state)
                 outputs = state
