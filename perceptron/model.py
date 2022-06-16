@@ -227,6 +227,8 @@ class Model:
                 for layer in self.layers:
                     if isinstance(layer, Layer):
                         state = self.optimizer.forward_pass(layer, state)
+                    elif isinstance(layer, Dropout):
+                        state = layer.forward_pass(state, training=True)
                     else:
                         state = layer.forward_pass(state)
                 outputs = state
