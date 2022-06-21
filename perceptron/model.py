@@ -42,22 +42,6 @@ class Model:
     def add(self, layer: Union[Layer, Activation, Dropout]) -> None:
         self.layers.append(layer)
 
-    def predict(
-        self,
-        inputs: List[float],
-        normalize_input: bool = True,
-    ) -> List[float]:
-        """Normalize inputs if needed and do forward pass."""
-
-        if normalize_input and self.normalizer is not None:
-            inputs = self.normalizer(inputs)
-
-        for layer in self.layers:
-            outputs = layer.forward_pass(inputs)
-            inputs = outputs
-
-        return outputs
-
     def compile(self, optimizer: Union[Optimizer, str] = "GD"):
         """Prepare optimizer and all trainable layers for training with given optimizer."""
 
@@ -73,6 +57,22 @@ class Model:
         for layer in self.layers:
             if hasattr(layer, "weights"):
                 self.optimizer.init(layer)
+
+    def predict(
+        self,
+        inputs: List[float],
+        normalize_input: bool = True,
+    ) -> List[float]:
+        """Normalize inputs if needed and do forward pass."""
+
+        if normalize_input and self.normalizer is not None:
+            inputs = self.normalizer(inputs)
+
+        for layer in self.layers:
+            outputs = layer.forward_pass(inputs)
+            inputs = outputs
+
+        return outputs
 
     def measure(
         self,
