@@ -16,6 +16,10 @@ from perceptron.optimizer import Optimizer, optimizer_from_string
 
 
 class Model:
+    """Perceptron model.
+
+    Main class that joins everything together."""
+
     __slots__ = [
         "layers",
         "trainable_layers",
@@ -27,6 +31,8 @@ class Model:
         self,
         normalizer: Union[Normalizer, str] = None,
     ):
+        """Create an empty model. Initialize input normalizer if specified."""
+
         # Initialize input normalizer
         if normalizer is not None and not isinstance(normalizer, Normalizer):
             if not isinstance(normalizer, str):
@@ -84,6 +90,8 @@ class Model:
         validation_targets: List[List[float]] = [],
         normalize_input: bool = True,
     ):
+        """Helper function to measure model performance during training."""
+
         measurements = {}
 
         toutputs = [self.predict(inp, normalize_input) for inp in training_inputs]
@@ -124,12 +132,22 @@ class Model:
         validation_targets: List[List[float]] = [],
         session_name: str = "",
     ) -> Dict:
+        """Implementation of a training loop."""
 
+        # Check if model has any layers
         if len(self.layers) == 0:
-            raise Exception("Model has no layers")
+            raise Exception("model has no layers")
 
+        # Check if model has any trainable layers
+        for layer in self.layers:
+            if isinstance(layer, Layer):
+                break
+        else:
+            raise Exception("model has no trainable layers")
+
+        # Check if model was compiled (has optimizer)
         if not hasattr(self, "optimizer"):
-            raise Exception("Model needs optimizer for training. Compile model first")
+            raise Exception("model needs optimizer for training. Compile model first")
 
         # Prepare learning rate decay
         if learning_rate_decay is None:
@@ -184,9 +202,6 @@ class Model:
                         self[key].append(val)
                     else:
                         self[key] = [val]
-
-            def get_last(self):
-                return {key: val[-1] for key, val in self.items()}
 
         history = History()
 
