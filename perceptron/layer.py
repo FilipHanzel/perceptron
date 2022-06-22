@@ -55,8 +55,8 @@ class Layer:
 
         self.l1_weights_regularizer = l1_weights_regularizer
         self.l1_biases_regularizer = l1_biases_regularizer
-        self.l2_weights_regularizer = l1_weights_regularizer
-        self.l2_biases_regularizer = l1_biases_regularizer
+        self.l2_weights_regularizer = l2_weights_regularizer
+        self.l2_biases_regularizer = l2_biases_regularizer
 
         self.weights: List[List[float]] = init_method(input_size, layer_size)
         self.biases: List[float] = [0.0] * layer_size
