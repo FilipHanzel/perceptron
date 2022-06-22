@@ -146,7 +146,7 @@ class Layer:
 
         return inputs_gradients
 
-    def l1_regularization(self) -> float:
+    def l1_regularization_loss(self) -> float:
         regularization_loss = 0.0
 
         if self.l1_weights_regularizer > 0.0:
@@ -160,7 +160,7 @@ class Layer:
 
         return regularization_loss
 
-    def l2_regularization(self) -> float:
+    def l2_regularization_loss(self) -> float:
         regularization_loss = 0.0
 
         if self.l2_weights_regularizer > 0.0:

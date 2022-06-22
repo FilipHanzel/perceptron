@@ -89,8 +89,12 @@ class Model:
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
         normalize_input: bool = True,
+        include_l1_loss: bool = False,
+        include_l2_loss: bool = False,
     ):
-        """Helper function to measure model performance during training."""
+        """Helper function to measure model performance during training.
+
+        Note that l1 and l2 losses are not added to the loss of a loss function."""
 
         measurements = {}
 
@@ -98,6 +102,22 @@ class Model:
         voutputs = [self.predict(inp, normalize_input) for inp in validation_inputs]
         ttargets = training_targets
         vtargets = validation_targets
+
+        # Measure l1 loss
+        if include_l1_loss:
+            l1 = 0.0
+            for layer in self.layers:
+                if isinstance(layer, Layer):
+                    l1 += layer.l1_regularization_loss()
+            measurements["l1_loss"] = l1
+
+        # Measure l2 loss
+        if include_l2_loss:
+            l2 = 0.0
+            for layer in self.layers:
+                if isinstance(layer, Layer):
+                    l2 += layer.l2_regularization_loss()
+            measurements["l2_loss"] = l2
 
         # Measure loss
         if loss_function is not None:
@@ -131,6 +151,8 @@ class Model:
         validation_inputs: List[List[float]] = [],
         validation_targets: List[List[float]] = [],
         session_name: str = "",
+        include_l1_loss_in_history: bool = False,
+        include_l2_loss_in_history: bool = False,
     ) -> Dict:
         """Implementation of a training loop."""
 
@@ -213,7 +235,9 @@ class Model:
             metrics,
             vinputs,
             vtargets,
-            False,
+            normalize_input=False,
+            include_l1_loss=include_l1_loss_in_history,
+            include_l2_loss=include_l2_loss_in_history,
         )
         history.add(measurements)
 
@@ -276,7 +300,9 @@ class Model:
                 metrics,
                 vinputs,
                 vtargets,
-                False,
+                normalize_input=False,
+                include_l1_loss=include_l1_loss_in_history,
+                include_l2_loss=include_l2_loss_in_history,
             )
             history.add(measurements)
 
@@ -297,6 +323,8 @@ def cross_validation(
     base_learning_rate: float = 1e-4,
     learning_rate_decay: Union[Decay, str, None] = "linear",
     metrics: List[str] = ["mae"],
+    include_l1_loss_in_history: bool = False,
+    include_l2_loss_in_history: bool = False,
 ) -> List[Dict]:
 
     folds = data_util.kfold_split(
@@ -329,6 +357,8 @@ def cross_validation(
             metrics=metrics,
             validation_inputs=test_inputs,
             validation_targets=test_targets,
+            include_l1_loss_in_history=include_l1_loss_in_history,
+            include_l2_loss_in_history=include_l2_loss_in_history,
         )
         history.append(run)
     return history
