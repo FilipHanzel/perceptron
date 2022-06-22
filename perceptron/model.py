@@ -319,7 +319,7 @@ def train(
     return history
 
 
-def cross_validation(
+def cross_validate(
     model_factory: Callable[[], Model],
     inputs: List[List[float]],
     targets: List[List[float]],
