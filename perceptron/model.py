@@ -293,7 +293,7 @@ def cross_validation(
     epochs: int,
     loss_function: Union[Loss, str],
     optimizer: Union[Optimizer, str],
-    batch_size: int,
+    batch_size: int = 1,
     base_learning_rate: float = 1e-4,
     learning_rate_decay: Union[Decay, str, None] = "linear",
     metrics: List[str] = ["mae"],
