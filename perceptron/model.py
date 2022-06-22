@@ -48,6 +48,7 @@ class Model:
     def add(self, layer: Union[Layer, Activation, Dropout]) -> None:
         self.layers.append(layer)
 
+    # This step could be moved to training, but it is more flexible to initialize model optimizer explicitly
     def compile(self, optimizer: Union[Optimizer, str] = "GD"):
         """Prepare optimizer and all trainable layers for training with given optimizer."""
 
@@ -80,235 +81,242 @@ class Model:
 
         return outputs
 
-    def measure(
-        self,
-        training_inputs,
-        training_targets,
-        loss_function: Loss = None,
-        metrics: List[Metric] = None,
-        validation_inputs: List[List[float]] = [],
-        validation_targets: List[List[float]] = [],
-        normalize_input: bool = True,
-        include_l1_loss: bool = False,
-        include_l2_loss: bool = False,
-    ):
-        """Helper function to measure model performance during training.
 
-        Note that l1 and l2 losses are not added to the loss of a loss function."""
+def measure(
+    model: Model,
+    training_inputs: List[List[float]],
+    training_targets: List[List[float]],
+    validation_inputs: List[List[float]] = [],
+    validation_targets: List[List[float]] = [],
+    loss_function: Loss = None,
+    normalize_input: bool = True,
+    metrics: List[Metric] = None,
+    include_l1_loss: bool = False,
+    include_l2_loss: bool = False,
+) -> Dict[str, List[float]]:
+    """Helper function to measure model performance during training.
 
-        measurements = {}
+    Note that l1 and l2 losses are not added to the loss of a loss function."""
 
-        toutputs = [self.predict(inp, normalize_input) for inp in training_inputs]
-        voutputs = [self.predict(inp, normalize_input) for inp in validation_inputs]
-        ttargets = training_targets
-        vtargets = validation_targets
+    measurements = {}
 
-        # Measure l1 loss
-        if include_l1_loss:
-            l1 = 0.0
-            for layer in self.layers:
-                if isinstance(layer, Layer):
-                    l1 += layer.l1_regularization_loss()
-            measurements["l1_loss"] = l1
+    toutputs = [model.predict(inp, normalize_input) for inp in training_inputs]
+    voutputs = [model.predict(inp, normalize_input) for inp in validation_inputs]
+    ttargets = training_targets
+    vtargets = validation_targets
 
-        # Measure l2 loss
-        if include_l2_loss:
-            l2 = 0.0
-            for layer in self.layers:
-                if isinstance(layer, Layer):
-                    l2 += layer.l2_regularization_loss()
-            measurements["l2_loss"] = l2
+    # Measure l1 loss
+    if include_l1_loss:
+        l1 = 0.0
+        for layer in model.layers:
+            if isinstance(layer, Layer):
+                l1 += layer.l1_regularization_loss()
+        measurements["l1_loss"] = l1
 
-        # Measure loss
-        if loss_function is not None:
-            loss = loss_function.calculate_avg(toutputs, ttargets)
-            measurements["loss"] = loss
+    # Measure l2 loss
+    if include_l2_loss:
+        l2 = 0.0
+        for layer in model.layers:
+            if isinstance(layer, Layer):
+                l2 += layer.l2_regularization_loss()
+        measurements["l2_loss"] = l2
+
+    # Measure loss
+    if loss_function is not None:
+        loss = loss_function.calculate_avg(toutputs, ttargets)
+        measurements["loss"] = loss
+
+        if len(validation_inputs) > 0:
+            loss = loss_function.calculate_avg(voutputs, vtargets)
+            measurements["val_loss"] = loss
+
+    # Measure metrics
+    if metrics is not None:
+        for m in metrics:
+            measurements[m.name] = m.calculate_avg(toutputs, ttargets)
 
             if len(validation_inputs) > 0:
-                loss = loss_function.calculate_avg(voutputs, vtargets)
-                measurements["val_loss"] = loss
+                measurements["val_" + m.name] = m.calculate_avg(voutputs, vtargets)
 
-        # Measure metrics
-        if metrics is not None:
-            for m in metrics:
-                measurements[m.name] = m.calculate_avg(toutputs, ttargets)
+    return measurements
 
-                if len(validation_inputs) > 0:
-                    measurements["val_" + m.name] = m.calculate_avg(voutputs, vtargets)
 
-        return measurements
+class History(dict):
+    """Helper class to keep track of model training history."""
 
-    def train(
-        self,
-        training_inputs: List[List[float]],
-        training_targets: List[List[float]],
-        epochs: int,
-        loss_function: Union[Loss, str],
-        batch_size: int = 1,
-        base_learning_rate: float = 1e-4,
-        learning_rate_decay: Union[Decay, str, None] = "linear",
-        metrics: List[str] = ["mae"],
-        validation_inputs: List[List[float]] = [],
-        validation_targets: List[List[float]] = [],
-        session_name: str = "",
-        include_l1_loss_in_history: bool = False,
-        include_l2_loss_in_history: bool = False,
-    ) -> Dict:
-        """Implementation of a training loop."""
+    def add(self, record: Dict):
+        for key, val in record.items():
+            if key in self:
+                self[key].append(val)
+            else:
+                self[key] = [val]
 
-        # Check if model has any layers
-        if len(self.layers) == 0:
-            raise Exception("model has no layers")
 
-        # Check if model has any trainable layers
-        for layer in self.layers:
-            if isinstance(layer, Layer):
-                break
-        else:
-            raise Exception("model has no trainable layers")
+def train(
+    model: Model,
+    training_inputs: List[List[float]],
+    training_targets: List[List[float]],
+    epochs: int,
+    loss_function: Union[Loss, str],
+    batch_size: int = 1,
+    base_learning_rate: float = 1e-4,
+    learning_rate_decay: Union[Decay, str, None] = "linear",
+    metrics: List[str] = ["mae"],
+    validation_inputs: List[List[float]] = [],
+    validation_targets: List[List[float]] = [],
+    include_l1_loss_in_history: bool = False,
+    include_l2_loss_in_history: bool = False,
+    session_name: str = "",
+) -> Dict:
+    """Implementation of a training loop."""
 
-        # Check if model was compiled (has optimizer)
-        if not hasattr(self, "optimizer"):
-            raise Exception("model needs optimizer for training. Compile model first")
+    # Check if model has any layers
+    if len(model.layers) == 0:
+        raise Exception("model has no layers")
 
-        # Prepare learning rate decay
-        if learning_rate_decay is None:
-            decay = lambda _: base_learning_rate
-        elif isinstance(learning_rate_decay, Decay):
-            decay = learning_rate_decay
-        else:
-            if not isinstance(learning_rate_decay, str):
+    # Check if model has any trainable layers
+    for layer in model.layers:
+        if isinstance(layer, Layer):
+            break
+    else:
+        raise Exception("model has no trainable layers")
+
+    # Check if model was compiled (has optimizer)
+    if not hasattr(model, "optimizer"):
+        raise Exception("model needs optimizer for training. Compile model first")
+
+    # Prepare learning rate decay
+    if learning_rate_decay is None:
+        decay = lambda _: base_learning_rate
+    elif isinstance(learning_rate_decay, Decay):
+        decay = learning_rate_decay
+    else:
+        if not isinstance(learning_rate_decay, str):
+            raise ValueError(
+                f"learning_rate_decay must be a string or inherit from Decay class, not {type(learning_rate_decay)}"
+            )
+        decay = decay_from_string(learning_rate_decay, base_learning_rate, epochs)
+
+    # Prepare metrics
+    loaded_metrics = []
+    for metric in metrics:
+        if not isinstance(metric, Metric):
+            if not isinstance(metric, str):
                 raise ValueError(
-                    f"learning_rate_decay must be a string or inherit from Decay class, not {type(learning_rate_decay)}"
+                    f"metric must be a string or inherit from Metric class, not {type(metric)}"
                 )
-            decay = decay_from_string(learning_rate_decay, base_learning_rate, epochs)
+            metric = metric_from_string(metric)
+        loaded_metrics.append(metric)
+    metrics = loaded_metrics
 
-        # Prepare metrics
-        loaded_metrics = []
-        for metric in metrics:
-            if not isinstance(metric, Metric):
-                if not isinstance(metric, str):
-                    raise ValueError(
-                        f"metric must be a string or inherit from Metric class, not {type(metric)}"
-                    )
-                metric = metric_from_string(metric)
-            loaded_metrics.append(metric)
-        metrics = loaded_metrics
+    # Prepare loss function
+    if not isinstance(loss_function, Loss):
+        if not isinstance(loss_function, str):
+            raise ValueError(
+                f"loss_function must be a string or inherit from Loss class, not {type(loss_function)}"
+            )
+        loss_function = loss_from_string(loss_function)
 
-        # Prepare loss function
-        if not isinstance(loss_function, Loss):
-            if not isinstance(loss_function, str):
-                raise ValueError(
-                    f"loss_function must be a string or inherit from Loss class, not {type(loss_function)}"
-                )
-            loss_function = loss_from_string(loss_function)
+    # Adapt normalizer and normalize data if normalizer is defined
+    if model.normalizer is not None:
+        model.normalizer.adapt(training_inputs, clean=False)
 
-        # Adapt normalizer and normalize data if normalizer is defined
-        if self.normalizer is not None:
-            self.normalizer.adapt(training_inputs, clean=False)
+        tinputs = [model.normalizer(inp) for inp in training_inputs]
+        vinputs = [model.normalizer(inp) for inp in validation_inputs]
+    else:
+        tinputs = training_inputs.copy()
+        vinputs = validation_inputs
 
-            tinputs = [self.normalizer(inp) for inp in training_inputs]
-            vinputs = [self.normalizer(inp) for inp in validation_inputs]
-        else:
-            tinputs = training_inputs.copy()
-            vinputs = validation_inputs
+    ttargets = training_targets.copy()
+    vtargets = validation_targets
 
-        ttargets = training_targets.copy()
-        vtargets = validation_targets
+    # Prepare history dict
+    history = History()
 
-        # Prepare history dict
-        class History(dict):
-            def add(self, record: Dict):
-                for key, val in record.items():
-                    if key in self:
-                        self[key].append(val)
-                    else:
-                        self[key] = [val]
+    # Measure performance before training
+    measurements = measure(
+        model=model,
+        training_inputs=tinputs,
+        training_targets=ttargets,
+        validation_inputs=vinputs,
+        validation_targets=vtargets,
+        loss_function=loss_function,
+        metrics=metrics,
+        normalize_input=False,
+        include_l1_loss=include_l1_loss_in_history,
+        include_l2_loss=include_l2_loss_in_history,
+    )
+    history.add(measurements)
 
-        history = History()
+    # Setup progress bar
+    if session_name:
+        session_name = f" {session_name}"
 
-        # Measure performance before training
-        measurements = self.measure(
-            tinputs,
-            ttargets,
-            loss_function,
-            metrics,
-            vinputs,
-            vtargets,
+    progress = tqdm(
+        range(epochs),
+        unit="epochs",
+        bar_format=f"Training{session_name}: "
+        "{percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
+    )
+    progress.set_postfix(**measurements)
+
+    for epoch in progress:
+
+        tinputs, ttargets = data_util.shuffle(tinputs, ttargets)
+        learning_rate = decay(epoch)
+
+        sample_counter = 1
+        for inputs, targets in zip(tinputs, ttargets):
+
+            # Forward pass through the model
+            state = inputs
+            for layer in model.layers:
+                if isinstance(layer, Layer):
+                    state = model.optimizer.forward_pass(layer, state)
+                elif isinstance(layer, Dropout):
+                    state = layer.forward_pass(state, training=True)
+                else:
+                    state = layer.forward_pass(state)
+            outputs = state
+
+            # Loss derivative for sample
+            dloss = loss_function.derivative(outputs, targets)
+
+            # Backward pass through the model
+            dstate = dloss
+
+            for layer in reversed(model.layers):
+                dstate = layer.backprop(dstate)
+
+            # Perform the update
+            is_batch = sample_counter % batch_size == 0
+            is_last = sample_counter == len(tinputs)
+
+            if is_batch or is_last:
+                for layer in model.layers:
+                    if isinstance(layer, Layer):
+                        model.optimizer.update(layer, learning_rate, batch_size)
+
+            sample_counter += 1
+
+        # Measure performance
+        measurements = measure(
+            model=model,
+            training_inputs=tinputs,
+            training_targets=ttargets,
+            validation_inputs=vinputs,
+            validation_targets=vtargets,
+            loss_function=loss_function,
+            metrics=metrics,
             normalize_input=False,
             include_l1_loss=include_l1_loss_in_history,
             include_l2_loss=include_l2_loss_in_history,
         )
         history.add(measurements)
 
-        # Setup progress bar
-        if session_name:
-            session_name = f" {session_name}"
-
-        progress = tqdm(
-            range(epochs),
-            unit="epochs",
-            bar_format=f"Training{session_name}: "
-            "{percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
-        )
         progress.set_postfix(**measurements)
 
-        for epoch in progress:
-
-            tinputs, ttargets = data_util.shuffle(tinputs, ttargets)
-            learning_rate = decay(epoch)
-
-            sample_counter = 1
-            for inputs, targets in zip(tinputs, ttargets):
-
-                # Forward pass through the model
-                state = inputs
-                for layer in self.layers:
-                    if isinstance(layer, Layer):
-                        state = self.optimizer.forward_pass(layer, state)
-                    elif isinstance(layer, Dropout):
-                        state = layer.forward_pass(state, training=True)
-                    else:
-                        state = layer.forward_pass(state)
-                outputs = state
-
-                # Loss derivative for sample
-                dloss = loss_function.derivative(outputs, targets)
-
-                # Backward pass through the model
-                dstate = dloss
-
-                for layer in reversed(self.layers):
-                    dstate = layer.backprop(dstate)
-
-                # Perform the update
-                is_batch = sample_counter % batch_size == 0
-                is_last = sample_counter == len(tinputs)
-
-                if is_batch or is_last:
-                    for layer in self.layers:
-                        if isinstance(layer, Layer):
-                            self.optimizer.update(layer, learning_rate, batch_size)
-
-                sample_counter += 1
-
-            # Measure performance
-            measurements = self.measure(
-                tinputs,
-                ttargets,
-                loss_function,
-                metrics,
-                vinputs,
-                vtargets,
-                normalize_input=False,
-                include_l1_loss=include_l1_loss_in_history,
-                include_l2_loss=include_l2_loss_in_history,
-            )
-            history.add(measurements)
-
-            progress.set_postfix(**measurements)
-
-        return history
+    return history
 
 
 def cross_validation(
@@ -326,6 +334,7 @@ def cross_validation(
     include_l1_loss_in_history: bool = False,
     include_l2_loss_in_history: bool = False,
 ) -> List[Dict]:
+    """Implementation of k-fold cross-validation algorithm."""
 
     folds = data_util.kfold_split(
         inputs, targets, fold_count, stratified=True, random=True
@@ -346,7 +355,8 @@ def cross_validation(
         model = model_factory()
         model.compile(optimizer)
 
-        run = model.train(
+        run = train(
+            model=model,
             training_inputs=train_inputs,
             training_targets=train_targets,
             epochs=epochs,
