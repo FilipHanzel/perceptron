@@ -340,8 +340,8 @@ def cross_validate(
         inputs, targets, fold_count, stratified=True, random=True
     )
 
-    history = []
-    for test_fold in folds:
+    history = {}
+    for fold_idx, test_fold in enumerate(folds):
         test_inputs = test_fold["inputs"]
         test_targets = test_fold["targets"]
 
@@ -370,5 +370,5 @@ def cross_validate(
             include_l1_loss_in_history=include_l1_loss_in_history,
             include_l2_loss_in_history=include_l2_loss_in_history,
         )
-        history.append(run)
+        history[f"fold_{fold_idx}"] = run
     return history
