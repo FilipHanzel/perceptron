@@ -36,6 +36,7 @@ class Metric:
     @property
     def name(self):
         """Formatted metric name. Should be used while displaying metrics during model training."""
+
         if self.__name is not None:
             return self.__name
         default_name = self.__class__.__name__

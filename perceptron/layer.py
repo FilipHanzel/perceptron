@@ -89,6 +89,7 @@ class Layer:
 
     def forward_pass(self, inputs: List[float]) -> List[float]:
         """Push inputs through the layer. Store reference to inputs and outputs."""
+
         self.inputs = inputs
         outputs = self.biases.copy()
 
@@ -99,7 +100,9 @@ class Layer:
         return outputs
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
-        """Push outputs gradients backwards through the layer. Accumulate weights gradients."""
+        """Push outputs gradients backwards through the layer. Accumulate weights gradients.
+
+        Note that l1 and l2 regularization is applied at this step."""
 
         # First step is to accumulate gradients to later update the weights
         for neuron_index in range(self.layer_size):
@@ -147,6 +150,8 @@ class Layer:
         return inputs_gradients
 
     def l1_regularization_loss(self) -> float:
+        """Calculate l1 layer loss."""
+
         regularization_loss = 0.0
 
         if self.l1_weights_regularizer > 0.0:
@@ -161,6 +166,8 @@ class Layer:
         return regularization_loss
 
     def l2_regularization_loss(self) -> float:
+        """Calculate l2 layer loss."""
+
         regularization_loss = 0.0
 
         if self.l2_weights_regularizer > 0.0:
@@ -175,7 +182,8 @@ class Layer:
         return regularization_loss
 
     def init_gradients(self) -> None:
-        """Initialize gradients."""
+        """Initialize gradients with zeros."""
+
         self.weights_gradients = [
             [0.0] * self.input_size for _ in range(self.layer_size)
         ]
@@ -183,6 +191,7 @@ class Layer:
 
     def init_velocities(self) -> None:
         """Initialize velocities for Momentum and Nesterov optimizers."""
+
         self.weights_velocities = [
             [0.0] * self.input_size for _ in range(self.layer_size)
         ]
@@ -190,6 +199,7 @@ class Layer:
 
     def init_accumulators(self, initial_value: float = 0.1) -> None:
         """Initialize accumulators for Adagrad and RMSprop optimizers."""
+
         self.weights_accumulators = [
             [initial_value] * self.input_size for _ in range(self.layer_size)
         ]
@@ -197,10 +207,12 @@ class Layer:
 
     def init_step(self) -> None:
         """Initialize step counter for Adam optimizer."""
+
         self.step = 1
 
     def init_first_and_second_moment_accumulators(self) -> None:
         """Initialize first and second momentum accumulators for Adam optimizer."""
+
         self.first_moment_weights_accumulators = [
             [0.0] * self.input_size for _ in range(self.layer_size)
         ]

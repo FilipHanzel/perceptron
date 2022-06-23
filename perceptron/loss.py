@@ -34,6 +34,7 @@ class Loss(ABC):
         self, outputs: List[List[float]], targets: List[List[float]]
     ) -> float:
         """Calculate average loss for multiple predictions."""
+    
         l = 0.0
         for output, target in zip(outputs, targets):
             l += self.calculate(output, target)

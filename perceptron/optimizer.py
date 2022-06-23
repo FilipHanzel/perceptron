@@ -32,16 +32,19 @@ class Optimizer(ABC):
 
     def init(self, layer: Layer) -> None:
         """Prepare layer for training (initialize all necessary parameters)."""
+
         layer.init_gradients()
 
     def forward_pass(self, layer: Layer, inputs: List[float]) -> List[float]:
         """Forward pass used in training. Wraps layer forward pass.
 
         Can be overridden if optimizer needs to change standard forward pass of a layer (Nesterov)."""
+
         return layer.forward_pass(inputs)
 
     def update(self, layer: Layer, learning_rate: float, batch_size: int) -> None:
         """Update weights based on calculated gradient. Synonym to __call__ method."""
+
         self(layer, learning_rate, batch_size)
 
     @abstractmethod

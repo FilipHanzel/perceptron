@@ -13,6 +13,8 @@ def clip(values: List[float], min_: float, max_: float):
 
 
 def shuffle(inputs: List[List[float]], targets: List[List[float]]) -> Tuple[List, List]:
+    """Shuffle both inputs and targets preserving the relation between elements of both lists."""
+
     order = list(range(len(inputs)))
     random.shuffle(order)
 
@@ -29,6 +31,7 @@ def kfold_split(
     stratified: bool = True,
     random: bool = True,
 ) -> Dict:
+    """Perform k-fold split on inputs and targets."""
 
     if random:
         inputs, targets = shuffle(inputs, targets)
@@ -49,7 +52,10 @@ def kfold_split(
 
 
 def to_binary(column: List[str]) -> List[List[int]]:
-    """Encode column values as 0 or 1."""
+    """Encode a column of labels as a column of ones and zeros.
+
+    There should be exactly two unique values in a column."""
+
     values = sorted(set(column))
     assert len(values) == 2, "Too many values for binary encoding"
 
@@ -60,7 +66,8 @@ def to_binary(column: List[str]) -> List[List[int]]:
 
 
 def to_categorical(column: List[str]) -> List[List[int]]:
-    """Encode column values as binary vectors."""
+    """Encode a column of labels as a column binary class vectors."""
+
     values = sorted(set(column))
 
     index_mapping = {label: index for index, label in enumerate(values)}
