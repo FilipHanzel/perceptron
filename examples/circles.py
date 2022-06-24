@@ -18,153 +18,130 @@ from perceptron.activation import Sigmoid, LeakyRelu
 from perceptron.decay import LinearDecay
 from perceptron.loss import BinaryCrossentropy
 
-plt.style.use("fivethirtyeight")
 
-# Load data
-features, targets = make_circles(n_samples=1000, noise=0.1)
-features = features.tolist()
-targets = targets.reshape(-1, 1).tolist()
-
-# Helper function to flatten targets list
 def flatten(nested):
+    """Helper function for flattening targets list."""
     unnested = []
     for element in nested:
         unnested += element
     return unnested
 
 
-# Define colors for each class
-class_0_correct_color = "#009600"
-class_1_correct_color = "#960000"
-class_0_incorrect_color = "#ddffdd"
-class_1_incorrect_color = "#ffdddd"
+if __name__ == "__main__":
+    plt.style.use("fivethirtyeight")
 
-# Split data per class for visualization
-class_0 = []
-class_1 = []
-for feature, target in zip(features, flatten(targets)):
-    if target == 0:
-        class_0.append(feature)
-    if target == 1:
-        class_1.append(feature)
+    # Load data
+    features, targets = make_circles(n_samples=1000, noise=0.1)
+    features = features.tolist()
+    targets = targets.reshape(-1, 1).tolist()
 
-class_0_x, class_0_y = data_util.transpose(class_0)
-class_1_x, class_1_y = data_util.transpose(class_1)
+    # Define colors for each class
+    correct_color_0 = "#009600"
+    correct_color_1 = "#960000"
+    incorrect_color_0 = "#ddffdd"
+    incorrect_color_1 = "#ffdddd"
 
-fig = plt.figure("", figsize=(20, 8))
+    # Split data per class for visualization
+    f0 = []  # Features of class 0
+    f1 = []  # Features of class 1
+    for feature, target in zip(features, flatten(targets)):
+        if target == 0:
+            f0.append(feature)
+        if target == 1:
+            f1.append(feature)
 
-# Plot preview of the dataset
-preview_ax = fig.add_subplot(121, title="preview")
-preview_ax.tick_params(labelsize=10)
-preview_ax.scatter(
-    class_0_x, class_0_y, s=15, color=[class_0_correct_color] * len(class_0)
-)
-preview_ax.scatter(
-    class_1_x, class_1_y, s=15, color=[class_1_correct_color] * len(class_1)
-)
+    x0, y0 = data_util.transpose(f0)
+    x1, y1 = data_util.transpose(f1)
 
+    # Prepare figure to plot
+    fig = plt.figure("", figsize=(20, 8))
 
-def model_factory():
-    model = Model()
-    model.add(Layer(input_size=2, layer_size=5))
-    model.add(LeakyRelu())
-    model.add(Layer(input_size=5, layer_size=5))
-    model.add(LeakyRelu())
-    model.add(Layer(input_size=5, layer_size=1))
-    model.add(Sigmoid())
+    # Plot preview of the dataset
+    preview_ax = fig.add_subplot(121, title="preview")
+    preview_ax.tick_params(labelsize=10)
+    preview_ax.scatter(x0, y0, s=25, color=[correct_color_0] * len(f0))
+    preview_ax.scatter(x1, y1, s=25, color=[correct_color_1] * len(f1))
 
-    return model
+    # Prepare model for training
+    def model_factory():
+        model = Model()
+        model.add(Layer(input_size=2, layer_size=5))
+        model.add(LeakyRelu())
+        model.add(Layer(input_size=5, layer_size=5))
+        model.add(LeakyRelu())
+        model.add(Layer(input_size=5, layer_size=1))
+        model.add(Sigmoid())
 
+        return model
 
-model = model_factory()
-model.compile("GD")
+    model = model_factory()
+    model.compile("GD")
 
-epochs = 50
-base_lr = 0.01
-batch_size = 1
-decay = LinearDecay(base_lr, epochs)
-loss_function = BinaryCrossentropy()
+    epochs = 50
+    base_lr = 0.01
+    batch_size = 1
+    decay = LinearDecay(base_lr, epochs)
+    loss_function = BinaryCrossentropy()
 
-# Prepare visualizations
-class_0_result_colors = [class_0_incorrect_color] * len(class_0)
-class_1_result_colors = [class_1_incorrect_color] * len(class_1)
+    # Enable interactive mode
+    plt.ion()
 
-plt.ion()
+    # Prepare plots for training visualization
+    training_ax = fig.add_subplot(122, title="training")
+    training_ax.tick_params(labelsize=10)
 
-training_ax = fig.add_subplot(122, title="training")
-training_ax.tick_params(labelsize=10)
+    result_colors_0 = [incorrect_color_0] * len(f0)
+    result_colors_1 = [incorrect_color_1] * len(f1)
+    class_0_plot = training_ax.scatter(x0, y0, s=25, color=result_colors_0)
+    class_1_plot = training_ax.scatter(x1, y1, s=25, color=result_colors_1)
 
-class_0_plot = training_ax.scatter(
-    class_0_x, class_0_y, s=15, color=class_0_result_colors
-)
-class_1_plot = training_ax.scatter(
-    class_1_x, class_1_y, s=15, color=class_1_result_colors
-)
+    # Training loop
+    progress = tqdm(
+        range(epochs),
+        unit="epochs",
+        bar_format="Training: {percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
+    )
 
-progress = tqdm(
-    range(epochs),
-    unit="epochs",
-    bar_format="Training: {percentage:3.0f}% |{bar:40}| {n_fmt}/{total_fmt}{postfix}",
-)
+    for epoch in progress:
+        tinputs, ttargets = data_util.shuffle(features, targets)
+        learning_rate = decay(epoch)
 
-# Training loop
-for epoch in progress:
-    tinputs, ttargets = data_util.shuffle(features, targets)
-    learning_rate = decay(epoch)
+        sample_counter = 1
+        for tinput, ttarget in zip(tinputs, ttargets):
 
-    sample_counter = 1
-    for tinput, ttarget in zip(tinputs, ttargets):
+            # Forward pass through the model
+            outputs = model.forward_pass(tinput)
 
-        # Forward pass through the model
-        state = tinput
-        for layer in model.layers:
-            if isinstance(layer, Layer):
-                state = model.optimizer.forward_pass(layer, state)
-            elif isinstance(layer, Dropout):
-                state = layer.forward_pass(state, training=True)
-            else:
-                state = layer.forward_pass(state)
-        outputs = state
+            # Loss derivative for sample
+            dloss = loss_function.derivative(outputs, ttarget)
 
-        # Loss derivative for sample
-        dloss = loss_function.derivative(outputs, ttarget)
+            # Backward pass through the model
+            model.backprop(dloss)
 
-        # Backward pass through the model
-        dstate = dloss
+            # Perform the update
+            is_batch = sample_counter % batch_size == 0
+            is_last = sample_counter == len(tinputs)
 
-        for layer in reversed(model.layers):
-            dstate = layer.backprop(dstate)
+            if is_batch or is_last:
+                model.update(learning_rate, batch_size)
 
-        # Perform the update
-        is_batch = sample_counter % batch_size == 0
-        is_last = sample_counter == len(tinputs)
+            sample_counter += 1
 
-        if is_batch or is_last:
-            for layer in model.layers:
-                if isinstance(layer, Layer):
-                    model.optimizer.update(layer, learning_rate, batch_size)
+        # Update visualization
+        result_colors_0 = [
+            correct_color_0 if model.predict(sample)[0] <= 0.5 else incorrect_color_0
+            for sample in f0
+        ]
+        class_0_plot.set_color(result_colors_0)
 
-        sample_counter += 1
+        result_colors_1 = [
+            incorrect_color_1 if model.predict(sample)[0] <= 0.5 else correct_color_1
+            for sample in f1
+        ]
+        class_1_plot.set_color(result_colors_1)
 
-    # Update visualization
-    class_0_result_colors = []
-    for sample in class_0:
-        if model.predict(sample)[0] <= 0.5:
-            class_0_result_colors.append(class_0_correct_color)
-        else:
-            class_0_result_colors.append(class_0_incorrect_color)
-    class_0_plot.set_color(class_0_result_colors)
+        fig.canvas.draw()
+        plt.pause(0.0001)
 
-    class_1_result_colors = []
-    for sample in class_1:
-        if model.predict(sample)[0] > 0.5:
-            class_1_result_colors.append(class_1_correct_color)
-        else:
-            class_1_result_colors.append(class_1_incorrect_color)
-    class_1_plot.set_color(class_1_result_colors)
-
-    fig.canvas.draw()
-    plt.pause(0.0001)
-
-plt.ioff()
-plt.show()
+    plt.ioff()
+    plt.show()
