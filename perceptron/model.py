@@ -65,6 +65,43 @@ class Model:
             if hasattr(layer, "weights"):
                 self.optimizer.init(layer)
 
+    def forward_pass(
+        self, inputs: List[float], normalize_input: bool = False
+    ) -> List[float]:
+        """Forward pass through the whole model.
+
+        This method should be used for training. To make predictions use predict."""
+
+        if normalize_input and self.normalizer is not None:
+            inputs = self.normalizer(inputs)
+
+        state = inputs
+        for layer in self.layers:
+            if isinstance(layer, Layer):
+                # In case of Nesterov optimizer, forward_pass needs to be overriden
+                state = self.optimizer.forward_pass(layer, state)
+            elif isinstance(layer, Dropout):
+                state = layer.forward_pass(state, training=True)
+            else:
+                state = layer.forward_pass(state)
+        outputs = state
+
+        return outputs
+
+    def backprop(self, outputs_gradients: List[float]) -> None:
+        """Backpropagade gradients through the whole model."""
+
+        for layer in reversed(self.layers):
+            outputs_gradients = layer.backprop(outputs_gradients)
+        return outputs_gradients
+
+    def update(self, learning_rate: float, batch_size: int) -> None:
+        """Update all trainable layers of the model using accumulated gradients."""
+
+        for layer in self.layers:
+            if isinstance(layer, Layer):
+                self.optimizer.update(layer, learning_rate, batch_size)
+
     def predict(
         self,
         inputs: List[float],
@@ -269,33 +306,20 @@ def train(
         for inputs, targets in zip(tinputs, ttargets):
 
             # Forward pass through the model
-            state = inputs
-            for layer in model.layers:
-                if isinstance(layer, Layer):
-                    state = model.optimizer.forward_pass(layer, state)
-                elif isinstance(layer, Dropout):
-                    state = layer.forward_pass(state, training=True)
-                else:
-                    state = layer.forward_pass(state)
-            outputs = state
+            outputs = model.forward_pass(inputs)
 
             # Loss derivative for sample
             dloss = loss_function.derivative(outputs, targets)
 
             # Backward pass through the model
-            dstate = dloss
-
-            for layer in reversed(model.layers):
-                dstate = layer.backprop(dstate)
+            model.backprop(dloss)
 
             # Perform the update
             is_batch = sample_counter % batch_size == 0
             is_last = sample_counter == len(tinputs)
 
             if is_batch or is_last:
-                for layer in model.layers:
-                    if isinstance(layer, Layer):
-                        model.optimizer.update(layer, learning_rate, batch_size)
+                model.update(learning_rate, batch_size)
 
             sample_counter += 1
 
