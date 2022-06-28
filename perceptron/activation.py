@@ -4,6 +4,11 @@ from typing import List
 
 
 class Activation:
+    """Base class for activation functions.
+
+    Activations are treated as a layer of a model
+    and have to implement forward_pass and backprop methods."""
+
     def __init__(self):
         self.outputs: List[float] = None
         self.inputs_gradients: List[float] = None
@@ -31,6 +36,7 @@ class Heavyside(Activation):
 
     def backprop(self, outputs_gradients: List[float]) -> List[float]:
         """This method returns input value for compatibility with weight updates."""
+
         return outputs_gradients
 
 

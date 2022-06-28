@@ -23,6 +23,8 @@ def decay_from_string(name: str, base_learning_rate: float, epochs: int) -> "Dec
 
 
 class Decay(ABC):
+    """Base class for learning rate decays."""
+
     def __init__(self, *args, **kwargs):
         """Initialize all necessary parameters."""
 
