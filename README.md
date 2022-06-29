@@ -25,6 +25,60 @@ perceptron
 \* layer implements l1 and l2 regularization</br>
 \*\* model has builtin input normalization capabilities, but normalizers can be easily used standalone
 
+## Implemented algorithms
+- layers
+    - dense
+- weight initialization
+    - he
+    - xavier
+    - from gauss distribution
+    - from uniform distribution
+    - zeros
+- activation
+    - heavyside
+    - linear
+    - relu
+    - leaky relu (parametrized relu)
+    - sigmoid
+    - tanh
+    - softmax
+- input normalization
+    - min-max
+    - zscore
+- loss
+    - mean square error
+    - mean square logarithmic error
+    - mean absolute error
+    - binary crossentropy
+    - categorical crossentropy
+- learning rate decays
+    - linear
+    - polynomial
+    - time based
+    - exponential
+    - step
+- optimization
+    - gradient descent
+    - momentum
+    - nesterov momentum
+    - adagrad
+    - rmsprop
+    - adam
+- regularization
+    - l1 and l2 
+    - dropout
+- metrics
+    - regression
+        - mean absolute error
+        - mean absolute percentage error
+        - mean square error
+        - root mean square error
+        - cosine similarity
+    - classification
+        - binary accuracy
+        - categorical accuracy
+        - top k categorical accuracy
+
 ## Examples
 - *xor* (binary classification) - simple example of building and training a model and decision boundary visualization
 - [*sonar* (binary classification)](http://archive.ics.uci.edu/ml/datasets/connectionist+bench+(sonar,+mines+vs.+rocks)) - attempt at solving sonar binary classification problem
